@@ -2,17 +2,31 @@ package primitives
 
 import (
 	"crypto/sha256"
-	"math/big"
+	"io"
 )
-
-// Value of Address is a sha256 hash
-type Address [sha256.Size]byte
-
-type Amount = big.Int
 
 // Value of AccountHash is a sha256 hash
 type AccountHash [sha256.Size]byte
 
 type Account struct {
-	Key Key
+	Bban *BBAN
+	Iban *IBAN
+	Key  *Key
+}
+
+func NewAccount(r io.Reader) (*Account, error) {
+	key, err := NewKeyForICAP(r)
+
+	if err != nil {
+		return nil, err
+	}
+
+	bban := NewBBAN([]byte(key.Address.String()))
+	iban := NewIBAN([]byte("TV00" + bban.String()))
+
+	return &Account{
+		Bban: bban,
+		Iban: iban,
+		Key:  key,
+	}, nil
 }
