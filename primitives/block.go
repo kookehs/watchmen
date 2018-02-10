@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"io"
+	"time"
 )
 
 // Value of BlockHash is a sha256 hash
@@ -27,6 +28,7 @@ type Block interface {
 	Previous() BlockHash
 	Root() BlockHash
 	Source() BlockHash
+	Timestamp() int64
 	Type() BlockType
 
 	// Deserialization
@@ -44,11 +46,13 @@ type Block interface {
 
 type ChangeBlock struct {
 	Hashables ChangeHashables `json:"hashables"`
+	Time      int64           `json:"timestamp"`
 }
 
 func MakeChangeBlock(d []AccountHash, p BlockHash) ChangeBlock {
 	return ChangeBlock{
 		Hashables: MakeChangeHashables(d, p),
+		Time:      time.Now().UnixNano(),
 	}
 }
 
@@ -58,7 +62,7 @@ func (cb *ChangeBlock) Delegates() []AccountHash {
 
 func (cb *ChangeBlock) Hash() BlockHash {
 	var buffer bytes.Buffer
-	cb.Hashables.Serialize(&buffer)
+	cb.Serialize(&buffer)
 	return sha256.Sum256(buffer.Bytes())
 }
 
@@ -72,6 +76,10 @@ func (cb *ChangeBlock) Root() BlockHash {
 
 func (cb *ChangeBlock) Source() BlockHash {
 	return BlockHash{}
+}
+
+func (cb *ChangeBlock) Timestamp() int64 {
+	return cb.Time
 }
 
 func (cb *ChangeBlock) Type() BlockType {
@@ -120,11 +128,13 @@ func (cb *ChangeBlock) ToJson() (string, error) {
 
 type OpenBlock struct {
 	Hashables OpenHashables `json:"hashables"`
+	Time      int64         `json:"timestamp"`
 }
 
 func MakeOpenBlock(a AccountHash) OpenBlock {
 	return OpenBlock{
 		Hashables: MakeOpenHashables(a),
+		Time:      time.Now().UnixNano(),
 	}
 }
 
@@ -134,7 +144,7 @@ func (ob *OpenBlock) Delegates() []AccountHash {
 
 func (ob *OpenBlock) Hash() BlockHash {
 	var buffer bytes.Buffer
-	ob.Hashables.Serialize(&buffer)
+	ob.Serialize(&buffer)
 	return sha256.Sum256(buffer.Bytes())
 }
 
@@ -148,6 +158,10 @@ func (ob *OpenBlock) Root() BlockHash {
 
 func (ob *OpenBlock) Source() BlockHash {
 	return BlockHash{}
+}
+
+func (ob *OpenBlock) Timestamp() int64 {
+	return ob.Time
 }
 
 func (ob *OpenBlock) Type() BlockType {
@@ -196,11 +210,13 @@ func (ob *OpenBlock) ToJson() (string, error) {
 
 type ReceiveBlock struct {
 	Hashables ReceiveHashables `json:"hashables"`
+	Time      int64            `json:"timestamp"`
 }
 
 func MakeReceiveBlock(p, s BlockHash) ReceiveBlock {
 	return ReceiveBlock{
 		Hashables: MakeReceiveHashables(p, s),
+		Time:      time.Now().UnixNano(),
 	}
 }
 
@@ -210,7 +226,7 @@ func (rb *ReceiveBlock) Delegates() []AccountHash {
 
 func (rb *ReceiveBlock) Hash() BlockHash {
 	var buffer bytes.Buffer
-	rb.Hashables.Serialize(&buffer)
+	rb.Serialize(&buffer)
 	return sha256.Sum256(buffer.Bytes())
 }
 
@@ -224,6 +240,10 @@ func (rb *ReceiveBlock) Root() BlockHash {
 
 func (rb *ReceiveBlock) Source() BlockHash {
 	return rb.Hashables.Source
+}
+
+func (rb *ReceiveBlock) Timestamp() int64 {
+	return rb.Time
 }
 
 func (rb *ReceiveBlock) Type() BlockType {
@@ -272,11 +292,13 @@ func (rb *ReceiveBlock) ToJson() (string, error) {
 
 type SendBlock struct {
 	Hashables SendHashables `json:"hashables"`
+	Time      int64         `json:"timestamp"`
 }
 
 func MakeSendBlock(b Amount, d AccountHash, p BlockHash) SendBlock {
 	return SendBlock{
 		Hashables: MakeSendHashables(b, d, p),
+		Time:      time.Now().UnixNano(),
 	}
 }
 
@@ -286,7 +308,7 @@ func (sb *SendBlock) Delegates() []AccountHash {
 
 func (sb *SendBlock) Hash() BlockHash {
 	var buffer bytes.Buffer
-	sb.Hashables.Serialize(&buffer)
+	sb.Serialize(&buffer)
 	return sha256.Sum256(buffer.Bytes())
 }
 
@@ -300,6 +322,10 @@ func (sb *SendBlock) Root() BlockHash {
 
 func (sb *SendBlock) Source() BlockHash {
 	return BlockHash{}
+}
+
+func (sb *SendBlock) Timestamp() int64 {
+	return sb.Time
 }
 
 func (sb *SendBlock) Type() BlockType {
