@@ -31,7 +31,19 @@ func BBANFromHex(b []byte) []byte {
 		b[2] = '0'
 		b[3] = 'x'
 		b = b[2:]
-		return base36.Encode(b)
+		encoded := base36.Encode(b)
+
+		if padding := IBANSize - len(encoded); padding > 0 {
+			bban := make([]byte, IBANSize)
+
+			for i := 0; i < padding; i++ {
+				bban = append(bban, '0')
+			}
+
+			bban = append(bban, encoded...)
+			return bban
+		}
+
 	}
 
 	return nil
