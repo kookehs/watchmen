@@ -1,7 +1,10 @@
 package primitives
 
 import (
+	"encoding/gob"
 	"encoding/hex"
+	"encoding/json"
+	"io"
 )
 
 const AddressSize = 20
@@ -27,6 +30,46 @@ func (a *Address) SetBytes(b []byte) {
 	}
 
 	copy(a[AddressSize-len(b):], b)
+}
+
+func (a *Address) Deserialize(r io.Reader) error {
+	decoder := gob.NewDecoder(r)
+
+	if err := decoder.Decode(a); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *Address) DeseralizeJson(r io.Reader) error {
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(a); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *Address) Serialize(w io.Writer) error {
+	encoder := gob.NewEncoder(w)
+
+	if err := encoder.Encode(a); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *Address) SerializeJson(w io.Writer) error {
+	encoder := json.NewEncoder(w)
+
+	if err := encoder.Encode(a); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (a *Address) String() string {

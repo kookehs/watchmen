@@ -2,6 +2,9 @@ package primitives
 
 import (
 	"bytes"
+	"encoding/gob"
+	"encoding/json"
+	"io"
 	"math/big"
 	"strconv"
 )
@@ -27,7 +30,14 @@ func (iban *IBAN) CalculateChecksum(i *big.Int) []byte {
 	remainder := new(big.Int)
 	remainder.Mod(i, mod)
 	checksum := 98 - int(remainder.Int64())
-	return []byte(strconv.Itoa(checksum))
+	var buffer bytes.Buffer
+
+	if checksum < 10 {
+		buffer.WriteByte('0')
+	}
+
+	buffer.WriteString(strconv.Itoa(checksum))
+	return buffer.Bytes()
 }
 
 func (iban *IBAN) ConvertToNumeric(b []byte) []byte {
@@ -55,8 +65,50 @@ func (iban *IBAN) ConvertToInteger(b []byte) *big.Int {
 }
 
 func (iban *IBAN) SetChecksum(b []byte) {
-	iban[2] = b[0]
-	iban[3] = b[1]
+	if len(b) == 2 {
+		iban[2] = b[0]
+		iban[3] = b[1]
+	}
+}
+
+func (iban *IBAN) Deserialize(r io.Reader) error {
+	decoder := gob.NewDecoder(r)
+
+	if err := decoder.Decode(iban); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (iban *IBAN) DeseralizeJson(r io.Reader) error {
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(iban); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (iban *IBAN) Serialize(w io.Writer) error {
+	encoder := gob.NewEncoder(w)
+
+	if err := encoder.Encode(iban); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (iban *IBAN) SerializeJson(w io.Writer) error {
+	encoder := json.NewEncoder(w)
+
+	if err := encoder.Encode(iban); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (iban *IBAN) String() string {

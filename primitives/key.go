@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"encoding/gob"
+	"encoding/json"
 	"io"
 
 	"github.com/google/uuid"
@@ -11,9 +13,9 @@ import (
 )
 
 type Key struct {
-	Id         uuid.UUID
-	Address    *Address
-	PrivateKey *ecdsa.PrivateKey
+	Id         uuid.UUID         `json:"id"`
+	Address    *Address          `json:"address"`
+	PrivateKey *ecdsa.PrivateKey `json:"privatekey"`
 }
 
 func NewKeyFromECDSA(pk *ecdsa.PrivateKey) (*Key, error) {
@@ -54,4 +56,44 @@ func NewKeyForICAP(r io.Reader) (*Key, error) {
 	}
 
 	return key, nil
+}
+
+func (k *Key) Deserialize(r io.Reader) error {
+	decoder := gob.NewDecoder(r)
+
+	if err := decoder.Decode(k); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (k *Key) DeseralizeJson(r io.Reader) error {
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(k); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (k *Key) Serialize(w io.Writer) error {
+	encoder := gob.NewEncoder(w)
+
+	if err := encoder.Encode(k); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (k *Key) SerializeJson(w io.Writer) error {
+	encoder := json.NewEncoder(w)
+
+	if err := encoder.Encode(k); err != nil {
+		return err
+	}
+
+	return nil
 }

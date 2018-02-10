@@ -3,6 +3,7 @@ package primitives
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
 	"encoding/json"
 	"io"
 )
@@ -78,7 +79,13 @@ func (cb *ChangeBlock) Type() BlockType {
 }
 
 func (cb *ChangeBlock) Deserialize(r io.Reader) error {
-	return cb.Hashables.Deserialize(r)
+	decoder := gob.NewDecoder(r)
+
+	if err := decoder.Decode(cb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (cb *ChangeBlock) DeserializeJson(r io.Reader) error {
@@ -86,7 +93,13 @@ func (cb *ChangeBlock) DeserializeJson(r io.Reader) error {
 }
 
 func (cb *ChangeBlock) Serialize(w io.Writer) error {
-	return cb.Hashables.Serialize(w)
+	encoder := gob.NewEncoder(w)
+
+	if err := encoder.Encode(cb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (cb *ChangeBlock) SerializeJson(w io.Writer) error {
@@ -99,6 +112,82 @@ func (cb *ChangeBlock) String() (string, error) {
 
 func (cb *ChangeBlock) ToJson() (string, error) {
 	if bytes, err := json.Marshal(cb); err != nil {
+		return "", err
+	} else {
+		return string(bytes), nil
+	}
+}
+
+type OpenBlock struct {
+	Hashables OpenHashables `json:"hashables"`
+}
+
+func MakeOpenBlock(a AccountHash) OpenBlock {
+	return OpenBlock{
+		Hashables: MakeOpenHashables(a),
+	}
+}
+
+func (ob *OpenBlock) Delegates() []AccountHash {
+	return nil
+}
+
+func (ob *OpenBlock) Hash() BlockHash {
+	var buffer bytes.Buffer
+	ob.Hashables.Serialize(&buffer)
+	return sha256.Sum256(buffer.Bytes())
+}
+
+func (ob *OpenBlock) Previous() BlockHash {
+	return BlockHash{}
+}
+
+func (ob *OpenBlock) Root() BlockHash {
+	return BlockHash{}
+}
+
+func (ob *OpenBlock) Source() BlockHash {
+	return BlockHash{}
+}
+
+func (ob *OpenBlock) Type() BlockType {
+	return Open
+}
+
+func (ob *OpenBlock) Deserialize(r io.Reader) error {
+	decoder := gob.NewDecoder(r)
+
+	if err := decoder.Decode(ob); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ob *OpenBlock) DeserializeJson(r io.Reader) error {
+	return ob.Hashables.DeserializeJson(r)
+}
+
+func (ob *OpenBlock) Serialize(w io.Writer) error {
+	encoder := gob.NewEncoder(w)
+
+	if err := encoder.Encode(ob); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ob *OpenBlock) SerializeJson(w io.Writer) error {
+	return ob.Hashables.SerializeJson(w)
+}
+
+func (ob *OpenBlock) String() (string, error) {
+	return ob.ToJson()
+}
+
+func (ob *OpenBlock) ToJson() (string, error) {
+	if bytes, err := json.Marshal(ob); err != nil {
 		return "", err
 	} else {
 		return string(bytes), nil
@@ -142,7 +231,13 @@ func (rb *ReceiveBlock) Type() BlockType {
 }
 
 func (rb *ReceiveBlock) Deserialize(r io.Reader) error {
-	return rb.Hashables.Deserialize(r)
+	decoder := gob.NewDecoder(r)
+
+	if err := decoder.Decode(rb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (rb *ReceiveBlock) DeserializeJson(r io.Reader) error {
@@ -150,7 +245,13 @@ func (rb *ReceiveBlock) DeserializeJson(r io.Reader) error {
 }
 
 func (rb *ReceiveBlock) Serialize(w io.Writer) error {
-	return rb.Hashables.Serialize(w)
+	encoder := gob.NewEncoder(w)
+
+	if err := encoder.Encode(rb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (rb *ReceiveBlock) SerializeJson(w io.Writer) error {
@@ -206,7 +307,13 @@ func (sb *SendBlock) Type() BlockType {
 }
 
 func (sb *SendBlock) Deserialize(r io.Reader) error {
-	return sb.Hashables.Deserialize(r)
+	decoder := gob.NewDecoder(r)
+
+	if err := decoder.Decode(sb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (sb *SendBlock) DeserializeJson(r io.Reader) error {
@@ -214,7 +321,13 @@ func (sb *SendBlock) DeserializeJson(r io.Reader) error {
 }
 
 func (sb *SendBlock) Serialize(w io.Writer) error {
-	return sb.Hashables.Serialize(w)
+	encoder := gob.NewEncoder(w)
+
+	if err := encoder.Encode(sb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (sb *SendBlock) SerializeJson(w io.Writer) error {
@@ -256,13 +369,9 @@ func MakeChangeHashables(d []AccountHash, p BlockHash) ChangeHashables {
 }
 
 func (ch *ChangeHashables) Deserialize(r io.Reader) error {
-	for _, d := range ch.Delegates {
-		if _, err := r.Read(d[:]); err != nil {
-			return err
-		}
-	}
+	decoder := gob.NewDecoder(r)
 
-	if _, err := r.Read(ch.Previous[:]); err != nil {
+	if err := decoder.Decode(ch); err != nil {
 		return err
 	}
 
@@ -280,13 +389,9 @@ func (ch *ChangeHashables) DeserializeJson(r io.Reader) error {
 }
 
 func (ch *ChangeHashables) Serialize(w io.Writer) error {
-	for _, d := range ch.Delegates {
-		if _, err := w.Write(d[:]); err != nil {
-			return err
-		}
-	}
+	encoder := gob.NewEncoder(w)
 
-	if _, err := w.Write(ch.Previous[:]); err != nil {
+	if err := encoder.Encode(ch); err != nil {
 		return err
 	}
 
@@ -297,6 +402,56 @@ func (ch *ChangeHashables) SerializeJson(w io.Writer) error {
 	encoder := json.NewEncoder(w)
 
 	if err := encoder.Encode(ch); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type OpenHashables struct {
+	Account AccountHash `json:"account"`
+}
+
+func MakeOpenHashables(a AccountHash) OpenHashables {
+	return OpenHashables{
+		Account: a,
+	}
+}
+
+func (oh *OpenHashables) Deserialize(r io.Reader) error {
+	decoder := gob.NewDecoder(r)
+
+	if err := decoder.Decode(oh); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (oh *OpenHashables) DeserializeJson(r io.Reader) error {
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(oh); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (oh *OpenHashables) Serialize(w io.Writer) error {
+	encoder := gob.NewEncoder(w)
+
+	if err := encoder.Encode(oh); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (oh *OpenHashables) SerializeJson(w io.Writer) error {
+	encoder := json.NewEncoder(w)
+
+	if err := encoder.Encode(oh); err != nil {
 		return err
 	}
 
@@ -316,11 +471,9 @@ func MakeReceiveHashables(p, s BlockHash) ReceiveHashables {
 }
 
 func (rh *ReceiveHashables) Deserialize(r io.Reader) error {
-	if _, err := r.Read(rh.Previous[:]); err != nil {
-		return err
-	}
+	decoder := gob.NewDecoder(r)
 
-	if _, err := r.Read(rh.Source[:]); err != nil {
+	if err := decoder.Decode(rh); err != nil {
 		return err
 	}
 
@@ -338,11 +491,9 @@ func (rh *ReceiveHashables) DeserializeJson(r io.Reader) error {
 }
 
 func (rh *ReceiveHashables) Serialize(w io.Writer) error {
-	if _, err := w.Write(rh.Previous[:]); err != nil {
-		return err
-	}
+	encoder := gob.NewEncoder(w)
 
-	if _, err := w.Write(rh.Source[:]); err != nil {
+	if err := encoder.Encode(rh); err != nil {
 		return err
 	}
 
@@ -374,19 +525,9 @@ func MakeSendHashables(b Amount, d AccountHash, p BlockHash) SendHashables {
 }
 
 func (sh *SendHashables) Deserialize(r io.Reader) error {
-	var bytes []byte
+	decoder := gob.NewDecoder(r)
 
-	if _, err := r.Read(bytes); err != nil {
-		return err
-	} else {
-		sh.Balance.SetBytes(bytes)
-	}
-
-	if _, err := r.Read(sh.Destination[:]); err != nil {
-		return err
-	}
-
-	if _, err := r.Read(sh.Previous[:]); err != nil {
+	if err := decoder.Decode(sh); err != nil {
 		return err
 	}
 
@@ -404,15 +545,9 @@ func (sh *SendHashables) DeserializeJson(r io.Reader) error {
 }
 
 func (sh *SendHashables) Serialize(w io.Writer) error {
-	if _, err := w.Write(sh.Balance.Bytes()); err != nil {
-		return err
-	}
+	encoder := gob.NewEncoder(w)
 
-	if _, err := w.Write(sh.Destination[:]); err != nil {
-		return err
-	}
-
-	if _, err := w.Write(sh.Previous[:]); err != nil {
+	if err := encoder.Encode(sh); err != nil {
 		return err
 	}
 
