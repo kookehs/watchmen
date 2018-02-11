@@ -2,34 +2,27 @@ package primitives
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/json"
 	"io"
-	"time"
-)
 
-// Value of BlockHash is a sha256 hash
-type BlockHash [sha256.Size]byte
-
-type BlockType uint8
-
-const (
-	Change BlockType = iota
-	Open
-	Receive
-	Send
+	"github.com/kookehs/watchmen/crypto"
 )
 
 type Block interface {
 	// Block
+	Balance() Amount
 	Delegates() []AccountHash
 	Hash() BlockHash
 	Previous() BlockHash
 	Root() BlockHash
+	Sign(*ecdsa.PrivateKey) error
 	Source() BlockHash
 	Timestamp() int64
 	Type() BlockType
+	Verify(*ecdsa.PublicKey) bool
 
 	// Deserialization
 	Deserialize(io.Reader) error
@@ -46,14 +39,17 @@ type Block interface {
 
 type ChangeBlock struct {
 	Hashables ChangeHashables `json:"hashables"`
-	Time      int64           `json:"timestamp"`
+	Signature Signature       `json:"signature"`
 }
 
-func MakeChangeBlock(d []AccountHash, p BlockHash) ChangeBlock {
+func MakeChangeBlock(a Amount, d []AccountHash, p BlockHash) ChangeBlock {
 	return ChangeBlock{
-		Hashables: MakeChangeHashables(d, p),
-		Time:      time.Now().UnixNano(),
+		Hashables: MakeChangeHashables(a, d, p),
 	}
+}
+
+func (cb *ChangeBlock) Balance() Amount {
+	return cb.Hashables.Balance
 }
 
 func (cb *ChangeBlock) Delegates() []AccountHash {
@@ -62,7 +58,7 @@ func (cb *ChangeBlock) Delegates() []AccountHash {
 
 func (cb *ChangeBlock) Hash() BlockHash {
 	var buffer bytes.Buffer
-	cb.Serialize(&buffer)
+	cb.Hashables.Serialize(&buffer)
 	return sha256.Sum256(buffer.Bytes())
 }
 
@@ -75,15 +71,32 @@ func (cb *ChangeBlock) Root() BlockHash {
 }
 
 func (cb *ChangeBlock) Source() BlockHash {
-	return BlockHash{}
+	return BlockHashZero
+}
+
+func (cb *ChangeBlock) Sign(pk *ecdsa.PrivateKey) error {
+	hash := cb.Hash()
+	r, s, err := crypto.Sign(hash[:], pk)
+
+	if err != nil {
+		return err
+	}
+
+	cb.Signature = MakeSignature(r, s)
+	return nil
 }
 
 func (cb *ChangeBlock) Timestamp() int64 {
-	return cb.Time
+	return cb.Hashables.Timestamp
 }
 
 func (cb *ChangeBlock) Type() BlockType {
 	return Change
+}
+
+func (cb *ChangeBlock) Verify(pk *ecdsa.PublicKey) bool {
+	hash := cb.Hash()
+	return crypto.Verify(hash[:], pk, cb.Signature.R, cb.Signature.S)
 }
 
 func (cb *ChangeBlock) Deserialize(r io.Reader) error {
@@ -97,7 +110,13 @@ func (cb *ChangeBlock) Deserialize(r io.Reader) error {
 }
 
 func (cb *ChangeBlock) DeserializeJson(r io.Reader) error {
-	return cb.Hashables.DeserializeJson(r)
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(cb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (cb *ChangeBlock) Serialize(w io.Writer) error {
@@ -111,7 +130,13 @@ func (cb *ChangeBlock) Serialize(w io.Writer) error {
 }
 
 func (cb *ChangeBlock) SerializeJson(w io.Writer) error {
-	return cb.Hashables.SerializeJson(w)
+	encoder := json.NewEncoder(w)
+
+	if err := encoder.Encode(cb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (cb *ChangeBlock) String() (string, error) {
@@ -128,14 +153,17 @@ func (cb *ChangeBlock) ToJson() (string, error) {
 
 type OpenBlock struct {
 	Hashables OpenHashables `json:"hashables"`
-	Time      int64         `json:"timestamp"`
+	Signature Signature     `json:"signature"`
 }
 
-func MakeOpenBlock(a AccountHash) OpenBlock {
+func MakeOpenBlock(a AccountHash, b Amount) OpenBlock {
 	return OpenBlock{
-		Hashables: MakeOpenHashables(a),
-		Time:      time.Now().UnixNano(),
+		Hashables: MakeOpenHashables(a, b),
 	}
+}
+
+func (ob *OpenBlock) Balance() Amount {
+	return ob.Hashables.Balance
 }
 
 func (ob *OpenBlock) Delegates() []AccountHash {
@@ -144,28 +172,45 @@ func (ob *OpenBlock) Delegates() []AccountHash {
 
 func (ob *OpenBlock) Hash() BlockHash {
 	var buffer bytes.Buffer
-	ob.Serialize(&buffer)
+	ob.Hashables.Serialize(&buffer)
 	return sha256.Sum256(buffer.Bytes())
 }
 
 func (ob *OpenBlock) Previous() BlockHash {
-	return BlockHash{}
+	return BlockHashZero
 }
 
 func (ob *OpenBlock) Root() BlockHash {
-	return BlockHash{}
+	return BlockHashZero
+}
+
+func (ob *OpenBlock) Sign(pk *ecdsa.PrivateKey) error {
+	hash := ob.Hash()
+	r, s, err := crypto.Sign(hash[:], pk)
+
+	if err != nil {
+		return err
+	}
+
+	ob.Signature = MakeSignature(r, s)
+	return nil
 }
 
 func (ob *OpenBlock) Source() BlockHash {
-	return BlockHash{}
+	return BlockHashZero
 }
 
 func (ob *OpenBlock) Timestamp() int64 {
-	return ob.Time
+	return ob.Hashables.Timestamp
 }
 
 func (ob *OpenBlock) Type() BlockType {
 	return Open
+}
+
+func (ob *OpenBlock) Verify(pk *ecdsa.PublicKey) bool {
+	hash := ob.Hash()
+	return crypto.Verify(hash[:], pk, ob.Signature.R, ob.Signature.S)
 }
 
 func (ob *OpenBlock) Deserialize(r io.Reader) error {
@@ -179,7 +224,13 @@ func (ob *OpenBlock) Deserialize(r io.Reader) error {
 }
 
 func (ob *OpenBlock) DeserializeJson(r io.Reader) error {
-	return ob.Hashables.DeserializeJson(r)
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(ob); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (ob *OpenBlock) Serialize(w io.Writer) error {
@@ -193,7 +244,13 @@ func (ob *OpenBlock) Serialize(w io.Writer) error {
 }
 
 func (ob *OpenBlock) SerializeJson(w io.Writer) error {
-	return ob.Hashables.SerializeJson(w)
+	encoder := json.NewEncoder(w)
+
+	if err := encoder.Encode(ob); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (ob *OpenBlock) String() (string, error) {
@@ -210,14 +267,17 @@ func (ob *OpenBlock) ToJson() (string, error) {
 
 type ReceiveBlock struct {
 	Hashables ReceiveHashables `json:"hashables"`
-	Time      int64            `json:"timestamp"`
+	Signature Signature        `json:"signature"`
 }
 
-func MakeReceiveBlock(p, s BlockHash) ReceiveBlock {
+func MakeReceiveBlock(a Amount, p, s BlockHash) ReceiveBlock {
 	return ReceiveBlock{
-		Hashables: MakeReceiveHashables(p, s),
-		Time:      time.Now().UnixNano(),
+		Hashables: MakeReceiveHashables(a, p, s),
 	}
+}
+
+func (rb *ReceiveBlock) Balance() Amount {
+	return rb.Hashables.Balance
 }
 
 func (rb *ReceiveBlock) Delegates() []AccountHash {
@@ -226,7 +286,7 @@ func (rb *ReceiveBlock) Delegates() []AccountHash {
 
 func (rb *ReceiveBlock) Hash() BlockHash {
 	var buffer bytes.Buffer
-	rb.Serialize(&buffer)
+	rb.Hashables.Serialize(&buffer)
 	return sha256.Sum256(buffer.Bytes())
 }
 
@@ -238,16 +298,33 @@ func (rb *ReceiveBlock) Root() BlockHash {
 	return rb.Hashables.Previous
 }
 
+func (rb *ReceiveBlock) Sign(pk *ecdsa.PrivateKey) error {
+	hash := rb.Hash()
+	r, s, err := crypto.Sign(hash[:], pk)
+
+	if err != nil {
+		return err
+	}
+
+	rb.Signature = MakeSignature(r, s)
+	return nil
+}
+
 func (rb *ReceiveBlock) Source() BlockHash {
 	return rb.Hashables.Source
 }
 
 func (rb *ReceiveBlock) Timestamp() int64 {
-	return rb.Time
+	return rb.Hashables.Timestamp
 }
 
 func (rb *ReceiveBlock) Type() BlockType {
 	return Receive
+}
+
+func (rb *ReceiveBlock) Verify(pk *ecdsa.PublicKey) bool {
+	hash := rb.Hash()
+	return crypto.Verify(hash[:], pk, rb.Signature.R, rb.Signature.S)
 }
 
 func (rb *ReceiveBlock) Deserialize(r io.Reader) error {
@@ -261,7 +338,13 @@ func (rb *ReceiveBlock) Deserialize(r io.Reader) error {
 }
 
 func (rb *ReceiveBlock) DeserializeJson(r io.Reader) error {
-	return rb.Hashables.DeserializeJson(r)
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(rb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (rb *ReceiveBlock) Serialize(w io.Writer) error {
@@ -275,7 +358,13 @@ func (rb *ReceiveBlock) Serialize(w io.Writer) error {
 }
 
 func (rb *ReceiveBlock) SerializeJson(w io.Writer) error {
-	return rb.Hashables.SerializeJson(w)
+	encoder := json.NewEncoder(w)
+
+	if err := encoder.Encode(rb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (rb *ReceiveBlock) String() (string, error) {
@@ -292,14 +381,17 @@ func (rb *ReceiveBlock) ToJson() (string, error) {
 
 type SendBlock struct {
 	Hashables SendHashables `json:"hashables"`
-	Time      int64         `json:"timestamp"`
+	Signature Signature     `json:"signature"`
 }
 
-func MakeSendBlock(b Amount, d AccountHash, p BlockHash) SendBlock {
+func MakeSendBlock(a Amount, d AccountHash, p BlockHash) SendBlock {
 	return SendBlock{
-		Hashables: MakeSendHashables(b, d, p),
-		Time:      time.Now().UnixNano(),
+		Hashables: MakeSendHashables(a, d, p),
 	}
+}
+
+func (sb *SendBlock) Balance() Amount {
+	return sb.Hashables.Balance
 }
 
 func (sb *SendBlock) Delegates() []AccountHash {
@@ -308,7 +400,7 @@ func (sb *SendBlock) Delegates() []AccountHash {
 
 func (sb *SendBlock) Hash() BlockHash {
 	var buffer bytes.Buffer
-	sb.Serialize(&buffer)
+	sb.Hashables.Serialize(&buffer)
 	return sha256.Sum256(buffer.Bytes())
 }
 
@@ -320,16 +412,33 @@ func (sb *SendBlock) Root() BlockHash {
 	return sb.Hashables.Previous
 }
 
+func (sb *SendBlock) Sign(pk *ecdsa.PrivateKey) error {
+	hash := sb.Hash()
+	r, s, err := crypto.Sign(hash[:], pk)
+
+	if err != nil {
+		return err
+	}
+
+	sb.Signature = MakeSignature(r, s)
+	return nil
+}
+
 func (sb *SendBlock) Source() BlockHash {
-	return BlockHash{}
+	return BlockHashZero
 }
 
 func (sb *SendBlock) Timestamp() int64 {
-	return sb.Time
+	return sb.Hashables.Timestamp
 }
 
 func (sb *SendBlock) Type() BlockType {
 	return Send
+}
+
+func (sb *SendBlock) Verify(pk *ecdsa.PublicKey) bool {
+	hash := sb.Hash()
+	return crypto.Verify(hash[:], pk, sb.Signature.R, sb.Signature.S)
 }
 
 func (sb *SendBlock) Deserialize(r io.Reader) error {
@@ -343,7 +452,13 @@ func (sb *SendBlock) Deserialize(r io.Reader) error {
 }
 
 func (sb *SendBlock) DeserializeJson(r io.Reader) error {
-	return sb.Hashables.DeserializeJson(r)
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(sb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (sb *SendBlock) Serialize(w io.Writer) error {
@@ -357,7 +472,13 @@ func (sb *SendBlock) Serialize(w io.Writer) error {
 }
 
 func (sb *SendBlock) SerializeJson(w io.Writer) error {
-	return sb.Hashables.SerializeJson(w)
+	encoder := json.NewEncoder(w)
+
+	if err := encoder.Encode(sb); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (sb *SendBlock) String() (string, error) {
@@ -370,222 +491,4 @@ func (sb *SendBlock) ToJson() (string, error) {
 	} else {
 		return string(bytes), nil
 	}
-}
-
-type Hashables interface {
-	// Deserialization
-	Deserialize(io.Reader) error
-	DeserializeJson(io.Reader) error
-
-	// Serialization
-	Serialize(io.Writer) error
-	SerializeJson(io.Writer) error
-}
-
-type ChangeHashables struct {
-	Delegates []AccountHash `json:"delegates"`
-	Previous  BlockHash     `json:"previous"`
-}
-
-func MakeChangeHashables(d []AccountHash, p BlockHash) ChangeHashables {
-	return ChangeHashables{
-		Delegates: d,
-		Previous:  p,
-	}
-}
-
-func (ch *ChangeHashables) Deserialize(r io.Reader) error {
-	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(ch); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (ch *ChangeHashables) DeserializeJson(r io.Reader) error {
-	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(ch); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (ch *ChangeHashables) Serialize(w io.Writer) error {
-	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(ch); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (ch *ChangeHashables) SerializeJson(w io.Writer) error {
-	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(ch); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type OpenHashables struct {
-	Account AccountHash `json:"account"`
-}
-
-func MakeOpenHashables(a AccountHash) OpenHashables {
-	return OpenHashables{
-		Account: a,
-	}
-}
-
-func (oh *OpenHashables) Deserialize(r io.Reader) error {
-	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(oh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (oh *OpenHashables) DeserializeJson(r io.Reader) error {
-	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(oh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (oh *OpenHashables) Serialize(w io.Writer) error {
-	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(oh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (oh *OpenHashables) SerializeJson(w io.Writer) error {
-	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(oh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type ReceiveHashables struct {
-	Previous BlockHash `json:"previous"`
-	Source   BlockHash `json:"source"`
-}
-
-func MakeReceiveHashables(p, s BlockHash) ReceiveHashables {
-	return ReceiveHashables{
-		Previous: p,
-		Source:   s,
-	}
-}
-
-func (rh *ReceiveHashables) Deserialize(r io.Reader) error {
-	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(rh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (rh *ReceiveHashables) DeserializeJson(r io.Reader) error {
-	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(rh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (rh *ReceiveHashables) Serialize(w io.Writer) error {
-	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(rh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (rh *ReceiveHashables) SerializeJson(w io.Writer) error {
-	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(rh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type SendHashables struct {
-	Balance     Amount      `json:"balance"`
-	Destination AccountHash `json:"destination"`
-	Previous    BlockHash   `json:"previous"`
-}
-
-func MakeSendHashables(b Amount, d AccountHash, p BlockHash) SendHashables {
-	return SendHashables{
-		Balance:     b,
-		Destination: d,
-		Previous:    p,
-	}
-}
-
-func (sh *SendHashables) Deserialize(r io.Reader) error {
-	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(sh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (sh *SendHashables) DeserializeJson(r io.Reader) error {
-	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(sh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (sh *SendHashables) Serialize(w io.Writer) error {
-	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(sh); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (sh *SendHashables) SerializeJson(w io.Writer) error {
-	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(sh); err != nil {
-		return err
-	}
-
-	return nil
 }

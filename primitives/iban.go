@@ -13,8 +13,8 @@ const IBANSize = 34
 
 type IBAN [IBANSize]byte
 
-func NewIBAN(b []byte) *IBAN {
-	iban := new(IBAN)
+func MakeIBAN(b []byte) IBAN {
+	var iban IBAN
 	copy(iban[:], b)
 	copy(b[IBANSize-4:], iban[:4])
 	copy(b[:IBANSize-4], iban[4:])

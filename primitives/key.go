@@ -14,7 +14,7 @@ import (
 
 type Key struct {
 	Id         uuid.UUID         `json:"id"`
-	Address    *Address          `json:"address"`
+	Address    Address           `json:"address"`
 	PrivateKey *ecdsa.PrivateKey `json:"privatekey"`
 }
 
@@ -26,7 +26,7 @@ func NewKeyFromECDSA(pk *ecdsa.PrivateKey) (*Key, error) {
 	}
 
 	hash := crypto.ECDSAPublicKeyToSHA256(pk.PublicKey)
-	address := NewAddress(hash[:])
+	address := MakeAddress(hash[:])
 
 	return &Key{
 		Id:         id,

@@ -12,8 +12,8 @@ const AddressSize = 20
 // Value of Address is a sha256 hash with the last 20 bytes
 type Address [AddressSize]byte
 
-func NewAddress(b []byte) *Address {
-	address := new(Address)
+func MakeAddress(b []byte) Address {
+	var address Address
 	address.SetBytes(b)
 	return address
 }

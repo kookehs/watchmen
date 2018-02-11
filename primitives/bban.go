@@ -12,8 +12,8 @@ const BBANSize = 30
 
 type BBAN [BBANSize]byte
 
-func NewBBAN(b []byte) *BBAN {
-	bban := new(BBAN)
+func MakeBBAN(b []byte) BBAN {
+	var bban BBAN
 	bban.SetBytes(BBANFromHex(b))
 	return bban
 }
