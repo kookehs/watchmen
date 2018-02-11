@@ -5,11 +5,6 @@ import (
 	"math/big"
 )
 
-// Value of AccountHash is a sha256 hash
-type AccountHash [sha256.Size]byte
-
-var AccountHashZero = [sha256.Size]byte{}
-
 type Amount = big.Int
 
 // Value of BlockHash is a sha256 hash

@@ -14,7 +14,7 @@ import (
 type Block interface {
 	// Block
 	Balance() Amount
-	Delegates() []AccountHash
+	Delegates() []IBAN
 	Hash() BlockHash
 	Previous() BlockHash
 	Root() BlockHash
@@ -42,8 +42,8 @@ type ChangeBlock struct {
 	Signature Signature       `json:"signature"`
 }
 
-func MakeChangeBlock(a Amount, d []AccountHash, p BlockHash) ChangeBlock {
-	return ChangeBlock{
+func NewChangeBlock(a Amount, d []IBAN, p BlockHash) *ChangeBlock {
+	return &ChangeBlock{
 		Hashables: MakeChangeHashables(a, d, p),
 	}
 }
@@ -52,7 +52,7 @@ func (cb *ChangeBlock) Balance() Amount {
 	return cb.Hashables.Balance
 }
 
-func (cb *ChangeBlock) Delegates() []AccountHash {
+func (cb *ChangeBlock) Delegates() []IBAN {
 	return cb.Hashables.Delegates
 }
 
@@ -156,8 +156,8 @@ type OpenBlock struct {
 	Signature Signature     `json:"signature"`
 }
 
-func MakeOpenBlock(a AccountHash, b Amount) OpenBlock {
-	return OpenBlock{
+func NewOpenBlock(a IBAN, b Amount) *OpenBlock {
+	return &OpenBlock{
 		Hashables: MakeOpenHashables(a, b),
 	}
 }
@@ -166,7 +166,7 @@ func (ob *OpenBlock) Balance() Amount {
 	return ob.Hashables.Balance
 }
 
-func (ob *OpenBlock) Delegates() []AccountHash {
+func (ob *OpenBlock) Delegates() []IBAN {
 	return nil
 }
 
@@ -270,8 +270,8 @@ type ReceiveBlock struct {
 	Signature Signature        `json:"signature"`
 }
 
-func MakeReceiveBlock(a Amount, p, s BlockHash) ReceiveBlock {
-	return ReceiveBlock{
+func NewReceiveBlock(a Amount, p, s BlockHash) *ReceiveBlock {
+	return &ReceiveBlock{
 		Hashables: MakeReceiveHashables(a, p, s),
 	}
 }
@@ -280,7 +280,7 @@ func (rb *ReceiveBlock) Balance() Amount {
 	return rb.Hashables.Balance
 }
 
-func (rb *ReceiveBlock) Delegates() []AccountHash {
+func (rb *ReceiveBlock) Delegates() []IBAN {
 	return nil
 }
 
@@ -384,8 +384,8 @@ type SendBlock struct {
 	Signature Signature     `json:"signature"`
 }
 
-func MakeSendBlock(a Amount, d AccountHash, p BlockHash) SendBlock {
-	return SendBlock{
+func NewSendBlock(a Amount, d IBAN, p BlockHash) *SendBlock {
+	return &SendBlock{
 		Hashables: MakeSendHashables(a, d, p),
 	}
 }
@@ -394,7 +394,7 @@ func (sb *SendBlock) Balance() Amount {
 	return sb.Hashables.Balance
 }
 
-func (sb *SendBlock) Delegates() []AccountHash {
+func (sb *SendBlock) Delegates() []IBAN {
 	return nil
 }
 

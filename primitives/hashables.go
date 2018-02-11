@@ -18,13 +18,13 @@ type Hashables interface {
 }
 
 type ChangeHashables struct {
-	Balance   Amount        `json:"balance"`
-	Delegates []AccountHash `json:"delegates"`
-	Previous  BlockHash     `json:"previous"`
-	Timestamp int64         `json:"timestamp"`
+	Balance   Amount    `json:"balance"`
+	Delegates []IBAN    `json:"delegates"`
+	Previous  BlockHash `json:"previous"`
+	Timestamp int64     `json:"timestamp"`
 }
 
-func MakeChangeHashables(a Amount, d []AccountHash, p BlockHash) ChangeHashables {
+func MakeChangeHashables(a Amount, d []IBAN, p BlockHash) ChangeHashables {
 	return ChangeHashables{
 		Balance:   a,
 		Delegates: d,
@@ -74,12 +74,12 @@ func (ch *ChangeHashables) SerializeJson(w io.Writer) error {
 }
 
 type OpenHashables struct {
-	Account   AccountHash `json:"account"`
-	Balance   Amount      `json:"balance"`
-	Timestamp int64       `json:"timestamp"`
+	Account   IBAN   `json:"account"`
+	Balance   Amount `json:"balance"`
+	Timestamp int64  `json:"timestamp"`
 }
 
-func MakeOpenHashables(a AccountHash, b Amount) OpenHashables {
+func MakeOpenHashables(a IBAN, b Amount) OpenHashables {
 	return OpenHashables{
 		Account:   a,
 		Balance:   b,
@@ -184,13 +184,13 @@ func (rh *ReceiveHashables) SerializeJson(w io.Writer) error {
 }
 
 type SendHashables struct {
-	Balance     Amount      `json:"balance"`
-	Destination AccountHash `json:"destination"`
-	Previous    BlockHash   `json:"previous"`
-	Timestamp   int64       `json:"timestamp"`
+	Balance     Amount    `json:"balance"`
+	Destination IBAN      `json:"destination"`
+	Previous    BlockHash `json:"previous"`
+	Timestamp   int64     `json:"timestamp"`
 }
 
-func MakeSendHashables(a Amount, d AccountHash, p BlockHash) SendHashables {
+func MakeSendHashables(a Amount, d IBAN, p BlockHash) SendHashables {
 	return SendHashables{
 		Balance:     a,
 		Destination: d,
