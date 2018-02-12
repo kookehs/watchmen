@@ -2,6 +2,9 @@ package core
 
 import (
 	"crypto/rand"
+	"encoding/gob"
+	"encoding/json"
+	"io"
 
 	"github.com/kookehs/watchmen/primitives"
 )
@@ -37,5 +40,45 @@ func (l *Ledger) CreateAccount(s string) error {
 
 	chain := l.Blocks[account.Iban.String()]
 	chain = append(chain, block)
+	return nil
+}
+
+func (l *Ledger) Deserialize(r io.Reader) error {
+	decoder := gob.NewDecoder(r)
+
+	if err := decoder.Decode(l); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *Ledger) DeserializeJson(r io.Reader) error {
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(l); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *Ledger) Serialize(w io.Writer) error {
+	encoder := gob.NewEncoder(w)
+
+	if err := encoder.Encode(l); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *Ledger) SerializeJson(w io.Writer) error {
+	encoder := json.NewEncoder(w)
+
+	if err := encoder.Encode(l); err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -27,7 +27,7 @@ func MakeAccount(k primitives.Key) Account {
 	}
 }
 
-func (a *Account) CreateChangeBlock(b Amount, d []IBAN, p BlockHash) (*primitives.ChangeBlock, error) {
+func (a *Account) CreateChangeBlock(b primitives.Amount, d []primitives.IBAN, p primitives.BlockHash) (*primitives.ChangeBlock, error) {
 	block := primitives.NewChangeBlock(b, d, p)
 
 	if err := block.Sign(a.Key.PrivateKey); err != nil {
@@ -48,7 +48,7 @@ func (a *Account) CreateOpenBlock() (*primitives.OpenBlock, error) {
 	return block, nil
 }
 
-func (a *Account) CreateReceiveBlock(b Amount, p, s BlockHash) (*primitives.ReceiveBlock, error) {
+func (a *Account) CreateReceiveBlock(b primitives.Amount, p, s primitives.BlockHash) (*primitives.ReceiveBlock, error) {
 	block := primitives.NewReceiveBlock(b, p, s)
 
 	if err := block.Sign(a.Key.PrivateKey); err != nil {
@@ -58,7 +58,7 @@ func (a *Account) CreateReceiveBlock(b Amount, p, s BlockHash) (*primitives.Rece
 	return block, nil
 }
 
-func (a *Account) CreateSendBlock(b Amount, d IBAN, p BlockHash) (*primitives.SendBlock, error) {
+func (a *Account) CreateSendBlock(b primitives.Amount, d primitives.IBAN, p primitives.BlockHash) (*primitives.SendBlock, error) {
 	block := primitives.NewSendBlock(b, d, p)
 
 	if err := block.Sign(a.Key.PrivateKey); err != nil {
