@@ -7,16 +7,18 @@ import (
 	"time"
 )
 
+// Hashables is an interface that contains common function shared between hashable structures.
 type Hashables interface {
 	// Deserialization
 	Deserialize(io.Reader) error
-	DeserializeJson(io.Reader) error
+	DeserializeJSON(io.Reader) error
 
 	// Serialization
 	Serialize(io.Writer) error
-	SerializeJson(io.Writer) error
+	SerializeJSON(io.Writer) error
 }
 
+// ChangeHashables contains elements of a ChangeBlock that can be hashed.
 type ChangeHashables struct {
 	Balance   Amount    `json:"balance"`
 	Delegates []IBAN    `json:"delegates"`
@@ -24,109 +26,81 @@ type ChangeHashables struct {
 	Timestamp int64     `json:"timestamp"`
 }
 
-func MakeChangeHashables(a Amount, d []IBAN, p BlockHash) ChangeHashables {
+// MakeChangeHashables creates and initializes a ChangeHashables from the given arguments.
+func MakeChangeHashables(amt Amount, delegates []IBAN, prev BlockHash) ChangeHashables {
 	return ChangeHashables{
-		Balance:   a,
-		Delegates: d,
-		Previous:  p,
+		Balance:   amt,
+		Delegates: delegates,
+		Previous:  prev,
 		Timestamp: time.Now().UnixNano(),
 	}
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (ch *ChangeHashables) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(ch); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(ch)
 }
 
-func (ch *ChangeHashables) DeserializeJson(r io.Reader) error {
+// DeserializeJSON decodes JSON data.
+func (ch *ChangeHashables) DeserializeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(ch); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(ch)
 }
 
+// Serialize encodes to byte data using gob.
 func (ch *ChangeHashables) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(ch); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(ch)
 }
 
-func (ch *ChangeHashables) SerializeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (ch *ChangeHashables) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(ch); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(ch)
 }
 
+// OpenHashables contains elements of a OpenBlock that can be hashed.
 type OpenHashables struct {
 	Account   IBAN   `json:"account"`
 	Balance   Amount `json:"balance"`
 	Timestamp int64  `json:"timestamp"`
 }
 
-func MakeOpenHashables(a IBAN, b Amount) OpenHashables {
+// MakeOpenHashables creates and initializes a OpenHashables from the given arguments.
+func MakeOpenHashables(amt Amount, iban IBAN) OpenHashables {
 	return OpenHashables{
-		Account:   a,
-		Balance:   b,
+		Account:   iban,
+		Balance:   amt,
 		Timestamp: time.Now().UnixNano(),
 	}
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (oh *OpenHashables) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(oh); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(oh)
 }
 
-func (oh *OpenHashables) DeserializeJson(r io.Reader) error {
+// DeserializeJSON decodes JSON data.
+func (oh *OpenHashables) DeserializeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(oh); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(oh)
 }
 
+// Serialize encodes to byte data using gob.
 func (oh *OpenHashables) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(oh); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(oh)
 }
 
-func (oh *OpenHashables) SerializeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (oh *OpenHashables) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(oh); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(oh)
 }
 
+// ReceiveHashables contains elements of a ReceiveBlock that can be hashed.
 type ReceiveHashables struct {
 	Balance   Amount    `json:"balance"`
 	Previous  BlockHash `json:"previous"`
@@ -134,55 +108,41 @@ type ReceiveHashables struct {
 	Timestamp int64     `json:"timestamp"`
 }
 
-func MakeReceiveHashables(a Amount, p, s BlockHash) ReceiveHashables {
+// MakeReceiveHashables creates and initializes a ReceiveHashables from the given arguments.
+func MakeReceiveHashables(amt Amount, prev, src BlockHash) ReceiveHashables {
 	return ReceiveHashables{
-		Balance:   a,
-		Previous:  p,
-		Source:    s,
+		Balance:   amt,
+		Previous:  prev,
+		Source:    src,
 		Timestamp: time.Now().UnixNano(),
 	}
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (rh *ReceiveHashables) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(rh); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(rh)
 }
 
-func (rh *ReceiveHashables) DeserializeJson(r io.Reader) error {
+// DeserializeJSON decodes JSON data.
+func (rh *ReceiveHashables) DeserializeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(rh); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(rh)
 }
 
+// Serialize encodes to byte data using gob.
 func (rh *ReceiveHashables) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(rh); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(rh)
 }
 
-func (rh *ReceiveHashables) SerializeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (rh *ReceiveHashables) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(rh); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(rh)
 }
 
+// SendHashables contains elements of a SendBlock that can be hashed.
 type SendHashables struct {
 	Balance     Amount    `json:"balance"`
 	Destination IBAN      `json:"destination"`
@@ -190,51 +150,36 @@ type SendHashables struct {
 	Timestamp   int64     `json:"timestamp"`
 }
 
-func MakeSendHashables(a Amount, d IBAN, p BlockHash) SendHashables {
+// MakeSendHashables creates and initializes a SendHashables from the given arguments.
+func MakeSendHashables(amt Amount, dst IBAN, prev BlockHash) SendHashables {
 	return SendHashables{
-		Balance:     a,
-		Destination: d,
-		Previous:    p,
+		Balance:     amt,
+		Destination: dst,
+		Previous:    prev,
 		Timestamp:   time.Now().UnixNano(),
 	}
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (sh *SendHashables) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(sh); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(sh)
 }
 
-func (sh *SendHashables) DeserializeJson(r io.Reader) error {
+// DeserializeJSON decodes JSON data.
+func (sh *SendHashables) DeserializeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(sh); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(sh)
 }
 
+// Serialize encodes to byte data using gob.
 func (sh *SendHashables) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(sh); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(sh)
 }
 
-func (sh *SendHashables) SerializeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (sh *SendHashables) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(sh); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(sh)
 }

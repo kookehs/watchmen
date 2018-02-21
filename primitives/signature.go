@@ -7,11 +7,13 @@ import (
 	"math/big"
 )
 
+// Signature a pair of integers that represent the signature.
 type Signature struct {
 	R *big.Int
 	S *big.Int
 }
 
+// MakeSignature creates and initializes a Signature from the given arguments.
 func MakeSignature(r, s *big.Int) Signature {
 	return Signature{
 		R: r,
@@ -19,42 +21,26 @@ func MakeSignature(r, s *big.Int) Signature {
 	}
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (s *Signature) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(s); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(s)
 }
 
-func (s *Signature) DeseralizeJson(r io.Reader) error {
+// DeseralizeJSON decodes JSON data.
+func (s *Signature) DeseralizeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(s); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(s)
 }
 
+// Serialize encodes to byte data using gob.
 func (s *Signature) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(s); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(s)
 }
 
-func (s *Signature) SeralizeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (s *Signature) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(s); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(s)
 }

@@ -11,72 +11,86 @@ import (
 	"github.com/kookehs/watchmen/crypto"
 )
 
+// Block represents the common elements shared between various types.
 type Block interface {
 	// Block
 	Balance() Amount
 	Delegates() []IBAN
-	Hash() BlockHash
+	Hash() (BlockHash, error)
 	Previous() BlockHash
 	Root() BlockHash
 	Sign(*ecdsa.PrivateKey) error
 	Source() BlockHash
 	Timestamp() int64
 	Type() BlockType
-	Verify(*ecdsa.PublicKey) bool
+	Verify(*ecdsa.PublicKey) (bool, error)
 
 	// Deserialization
 	Deserialize(io.Reader) error
-	DeserializeJson(io.Reader) error
+	DeserializeJSON(io.Reader) error
 
 	// Serialization
 	Serialize(io.Writer) error
-	SerializeJson(io.Writer) error
+	SerializeJSON(io.Writer) error
 
 	// Conversion
 	String() (string, error)
-	ToJson() (string, error)
+	ToJSON() (string, error)
 }
 
+// ChangeBlock represents a change in delegates.
 type ChangeBlock struct {
 	Hashables ChangeHashables `json:"hashables"`
 	Signature Signature       `json:"signature"`
 }
 
-func NewChangeBlock(a Amount, d []IBAN, p BlockHash) *ChangeBlock {
+// NewChangeBlock creates and initializes a ChangeBlock from the given arguments.
+func NewChangeBlock(amt Amount, delegates []IBAN, prev BlockHash) *ChangeBlock {
 	return &ChangeBlock{
-		Hashables: MakeChangeHashables(a, d, p),
+		Hashables: MakeChangeHashables(amt, delegates, prev),
 	}
 }
 
+// Balance returns the balance associated with this block.
 func (cb *ChangeBlock) Balance() Amount {
 	return cb.Hashables.Balance
 }
 
+// Delegates returns the delegates associated with this block.
 func (cb *ChangeBlock) Delegates() []IBAN {
 	return cb.Hashables.Delegates
 }
 
-func (cb *ChangeBlock) Hash() BlockHash {
+// Hash returns the SHA256 hash of the serialized bytes of Hashables.
+func (cb *ChangeBlock) Hash() (BlockHash, error) {
 	var buffer bytes.Buffer
-	cb.Hashables.Serialize(&buffer)
-	return sha256.Sum256(buffer.Bytes())
+
+	if err := cb.Hashables.Serialize(&buffer); err != nil {
+		return BlockHashZero, err
+	}
+
+	return sha256.Sum256(buffer.Bytes()), nil
 }
 
+// Previous returns the previous hash associated with this block.
 func (cb *ChangeBlock) Previous() BlockHash {
 	return cb.Hashables.Previous
 }
 
+// Root returns the previous hash associated with this block.
 func (cb *ChangeBlock) Root() BlockHash {
 	return cb.Hashables.Previous
 }
 
-func (cb *ChangeBlock) Source() BlockHash {
-	return BlockHashZero
-}
+// Sign signs the block with the given private key.
+func (cb *ChangeBlock) Sign(priv *ecdsa.PrivateKey) error {
+	hash, err := cb.Hash()
 
-func (cb *ChangeBlock) Sign(pk *ecdsa.PrivateKey) error {
-	hash := cb.Hash()
-	r, s, err := crypto.Sign(hash[:], pk)
+	if err != nil {
+		return err
+	}
+
+	r, s, err := crypto.Sign(hash[:], priv)
 
 	if err != nil {
 		return err
@@ -86,107 +100,126 @@ func (cb *ChangeBlock) Sign(pk *ecdsa.PrivateKey) error {
 	return nil
 }
 
+// Source returns the source hash associated with this block.
+func (cb *ChangeBlock) Source() BlockHash {
+	return BlockHashZero
+}
+
+// Timestamp returns the timestamp of when the block was created.
 func (cb *ChangeBlock) Timestamp() int64 {
 	return cb.Hashables.Timestamp
 }
 
+// Type returns the type of this block.
 func (cb *ChangeBlock) Type() BlockType {
 	return Change
 }
 
-func (cb *ChangeBlock) Verify(pk *ecdsa.PublicKey) bool {
-	hash := cb.Hash()
-	return crypto.Verify(hash[:], pk, cb.Signature.R, cb.Signature.S)
+// Verify verifies whether this block was signed by the given public key owner.
+func (cb *ChangeBlock) Verify(pub *ecdsa.PublicKey) bool {
+	hash, err := cb.Hash()
+
+	if err != nil {
+		return false
+	}
+
+	return crypto.Verify(hash[:], pub, cb.Signature.R, cb.Signature.S)
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (cb *ChangeBlock) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(cb); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(cb)
 }
 
-func (cb *ChangeBlock) DeserializeJson(r io.Reader) error {
+// DeserializeJSON decodes JSON data.
+func (cb *ChangeBlock) DeserializeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(cb); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(cb)
 }
 
+// Serialize encodes to byte data using gob.
 func (cb *ChangeBlock) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(cb); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(cb)
 }
 
-func (cb *ChangeBlock) SerializeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (cb *ChangeBlock) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(cb); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(cb)
 }
 
+// String returns a JSON encoded string.
 func (cb *ChangeBlock) String() (string, error) {
-	return cb.ToJson()
+	return cb.ToJSON()
 }
 
-func (cb *ChangeBlock) ToJson() (string, error) {
-	if bytes, err := json.Marshal(cb); err != nil {
+// ToJSON returns a JSON encoded string.
+func (cb *ChangeBlock) ToJSON() (string, error) {
+	bytes, err := json.Marshal(cb)
+
+	if err != nil {
 		return "", err
-	} else {
-		return string(bytes), nil
 	}
+
+	return string(bytes), nil
 }
 
+// OpenBlock represents a openining of an account.
 type OpenBlock struct {
 	Hashables OpenHashables `json:"hashables"`
 	Signature Signature     `json:"signature"`
 }
 
-func NewOpenBlock(a IBAN, b Amount) *OpenBlock {
+// NewOpenBlock creates and initializes an OpenBlock from the given arguments.
+func NewOpenBlock(amt Amount, iban IBAN) *OpenBlock {
 	return &OpenBlock{
-		Hashables: MakeOpenHashables(a, b),
+		Hashables: MakeOpenHashables(amt, iban),
 	}
 }
 
+// Balance returns the balance associated with this block.
 func (ob *OpenBlock) Balance() Amount {
 	return ob.Hashables.Balance
 }
 
+// Delegates returns the delegates associated with this block.
 func (ob *OpenBlock) Delegates() []IBAN {
 	return nil
 }
 
-func (ob *OpenBlock) Hash() BlockHash {
+// Hash returns the SHA256 hash of the serialized bytes of Hashables.
+func (ob *OpenBlock) Hash() (BlockHash, error) {
 	var buffer bytes.Buffer
-	ob.Hashables.Serialize(&buffer)
-	return sha256.Sum256(buffer.Bytes())
+	err := ob.Hashables.Serialize(&buffer)
+
+	if err != nil {
+		return BlockHashZero, err
+	}
+
+	return sha256.Sum256(buffer.Bytes()), nil
 }
 
+// Previous returns the previous hash associated with this block.
 func (ob *OpenBlock) Previous() BlockHash {
 	return BlockHashZero
 }
 
+// Root returns the previous hash associated with this block.
 func (ob *OpenBlock) Root() BlockHash {
 	return BlockHashZero
 }
 
-func (ob *OpenBlock) Sign(pk *ecdsa.PrivateKey) error {
-	hash := ob.Hash()
-	r, s, err := crypto.Sign(hash[:], pk)
+// Sign signs the block with the given private key.
+func (ob *OpenBlock) Sign(priv *ecdsa.PrivateKey) error {
+	hash, err := ob.Hash()
+
+	if err != nil {
+		return err
+	}
+
+	r, s, err := crypto.Sign(hash[:], priv)
 
 	if err != nil {
 		return err
@@ -196,111 +229,125 @@ func (ob *OpenBlock) Sign(pk *ecdsa.PrivateKey) error {
 	return nil
 }
 
+// Source returns the source hash associated with this block.
 func (ob *OpenBlock) Source() BlockHash {
 	return BlockHashZero
 }
 
+// Timestamp returns the timestamp of when the block was created.
 func (ob *OpenBlock) Timestamp() int64 {
 	return ob.Hashables.Timestamp
 }
 
+// Type returns the type of this block.
 func (ob *OpenBlock) Type() BlockType {
 	return Open
 }
 
-func (ob *OpenBlock) Verify(pk *ecdsa.PublicKey) bool {
-	hash := ob.Hash()
-	return crypto.Verify(hash[:], pk, ob.Signature.R, ob.Signature.S)
+// Verify verifies whether this block was signed by the given public key owner.
+func (ob *OpenBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
+	hash, err := ob.Hash()
+
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.Verify(hash[:], pub, ob.Signature.R, ob.Signature.S), nil
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (ob *OpenBlock) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(ob); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(ob)
 }
 
-func (ob *OpenBlock) DeserializeJson(r io.Reader) error {
+// DeserializeJSON decodes JSON data.
+func (ob *OpenBlock) DeserializeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(ob); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(ob)
 }
 
+// Serialize encodes to byte data using gob.
 func (ob *OpenBlock) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(ob); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(ob)
 }
 
-func (ob *OpenBlock) SerializeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (ob *OpenBlock) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(ob); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(ob)
 }
 
+// String returns a json encoded string.
 func (ob *OpenBlock) String() (string, error) {
-	return ob.ToJson()
+	return ob.ToJSON()
 }
 
-func (ob *OpenBlock) ToJson() (string, error) {
-	if bytes, err := json.Marshal(ob); err != nil {
+// ToJSON returns a JSON encoded string.
+func (ob *OpenBlock) ToJSON() (string, error) {
+	bytes, err := json.Marshal(ob)
+
+	if err != nil {
 		return "", err
-	} else {
-		return string(bytes), nil
 	}
+
+	return string(bytes), nil
 }
 
+// ReceiveBlock represents the receiving end of a send transaction.
 type ReceiveBlock struct {
 	Hashables ReceiveHashables `json:"hashables"`
 	Signature Signature        `json:"signature"`
 }
 
-func NewReceiveBlock(a Amount, p, s BlockHash) *ReceiveBlock {
+// NewReceiveBlock creates and initializes a ReceiveBlock from the given arguments.
+func NewReceiveBlock(amt Amount, prev, src BlockHash) *ReceiveBlock {
 	return &ReceiveBlock{
-		Hashables: MakeReceiveHashables(a, p, s),
+		Hashables: MakeReceiveHashables(amt, prev, src),
 	}
 }
 
+// Balance returns the balance associated with this block.
 func (rb *ReceiveBlock) Balance() Amount {
 	return rb.Hashables.Balance
 }
 
+// Delegates returns the delegates associated with this block.
 func (rb *ReceiveBlock) Delegates() []IBAN {
 	return nil
 }
 
-func (rb *ReceiveBlock) Hash() BlockHash {
+// Hash returns the SHA256 hash of the serialized bytes of Hashables.
+func (rb *ReceiveBlock) Hash() (BlockHash, error) {
 	var buffer bytes.Buffer
-	rb.Hashables.Serialize(&buffer)
-	return sha256.Sum256(buffer.Bytes())
+
+	if err := rb.Hashables.Serialize(&buffer); err != nil {
+		return BlockHashZero, err
+	}
+
+	return sha256.Sum256(buffer.Bytes()), nil
 }
 
+// Previous returns the previous hash associated with this block.
 func (rb *ReceiveBlock) Previous() BlockHash {
 	return rb.Hashables.Previous
 }
 
+// Root returns the previous hash associated with this block.
 func (rb *ReceiveBlock) Root() BlockHash {
 	return rb.Hashables.Previous
 }
 
-func (rb *ReceiveBlock) Sign(pk *ecdsa.PrivateKey) error {
-	hash := rb.Hash()
-	r, s, err := crypto.Sign(hash[:], pk)
+// Sign signs the block with the given private key.
+func (rb *ReceiveBlock) Sign(priv *ecdsa.PrivateKey) error {
+	hash, err := rb.Hash()
+
+	if err != nil {
+		return err
+	}
+
+	r, s, err := crypto.Sign(hash[:], priv)
 
 	if err != nil {
 		return err
@@ -310,111 +357,125 @@ func (rb *ReceiveBlock) Sign(pk *ecdsa.PrivateKey) error {
 	return nil
 }
 
+// Source returns the source hash associated with this block.
 func (rb *ReceiveBlock) Source() BlockHash {
 	return rb.Hashables.Source
 }
 
+// Timestamp returns the timestamp of when the block was created.
 func (rb *ReceiveBlock) Timestamp() int64 {
 	return rb.Hashables.Timestamp
 }
 
+// Type returns the type of this block.
 func (rb *ReceiveBlock) Type() BlockType {
 	return Receive
 }
 
-func (rb *ReceiveBlock) Verify(pk *ecdsa.PublicKey) bool {
-	hash := rb.Hash()
-	return crypto.Verify(hash[:], pk, rb.Signature.R, rb.Signature.S)
+// Verify verifies whether this block was signed by the given public key owner.
+func (rb *ReceiveBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
+	hash, err := rb.Hash()
+
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.Verify(hash[:], pub, rb.Signature.R, rb.Signature.S), nil
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (rb *ReceiveBlock) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(rb); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(rb)
 }
 
-func (rb *ReceiveBlock) DeserializeJson(r io.Reader) error {
+// DeserializeJSON decodes JSON data.
+func (rb *ReceiveBlock) DeserializeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(rb); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(rb)
 }
 
+// Serialize encodes to byte data using gob.
 func (rb *ReceiveBlock) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(rb); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(rb)
 }
 
-func (rb *ReceiveBlock) SerializeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (rb *ReceiveBlock) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(rb); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(rb)
 }
 
+// String returns a json encoded string.
 func (rb *ReceiveBlock) String() (string, error) {
-	return rb.ToJson()
+	return rb.ToJSON()
 }
 
-func (rb *ReceiveBlock) ToJson() (string, error) {
-	if bytes, err := json.Marshal(rb); err != nil {
+// ToJSON returns a JSON encoded string.
+func (rb *ReceiveBlock) ToJSON() (string, error) {
+	bytes, err := json.Marshal(rb)
+
+	if err != nil {
 		return "", err
-	} else {
-		return string(bytes), nil
 	}
+
+	return string(bytes), nil
 }
 
+// SendBlock represents the sending of a transaction.
 type SendBlock struct {
 	Hashables SendHashables `json:"hashables"`
 	Signature Signature     `json:"signature"`
 }
 
-func NewSendBlock(a Amount, d IBAN, p BlockHash) *SendBlock {
+// NewSendBlock creates and initializes a SendBlock from the given arguments.
+func NewSendBlock(amt Amount, dst IBAN, prev BlockHash) *SendBlock {
 	return &SendBlock{
-		Hashables: MakeSendHashables(a, d, p),
+		Hashables: MakeSendHashables(amt, dst, prev),
 	}
 }
 
+// Balance returns the balance associated with this block.
 func (sb *SendBlock) Balance() Amount {
 	return sb.Hashables.Balance
 }
 
+// Delegates returns the delegates associated with this block.
 func (sb *SendBlock) Delegates() []IBAN {
 	return nil
 }
 
-func (sb *SendBlock) Hash() BlockHash {
+// Hash returns the SHA256 hash of the serialized bytes of Hashables.
+func (sb *SendBlock) Hash() (BlockHash, error) {
 	var buffer bytes.Buffer
-	sb.Hashables.Serialize(&buffer)
-	return sha256.Sum256(buffer.Bytes())
+
+	if err := sb.Hashables.Serialize(&buffer); err != nil {
+		return BlockHashZero, err
+	}
+
+	return sha256.Sum256(buffer.Bytes()), nil
 }
 
+// Previous returns the previous hash associated with this block.
 func (sb *SendBlock) Previous() BlockHash {
 	return sb.Hashables.Previous
 }
 
+// Root returns the previous hash associated with this block.
 func (sb *SendBlock) Root() BlockHash {
 	return sb.Hashables.Previous
 }
 
-func (sb *SendBlock) Sign(pk *ecdsa.PrivateKey) error {
-	hash := sb.Hash()
-	r, s, err := crypto.Sign(hash[:], pk)
+// Sign signs the block with the given private key.
+func (sb *SendBlock) Sign(priv *ecdsa.PrivateKey) error {
+	hash, err := sb.Hash()
+
+	if err != nil {
+		return err
+	}
+
+	r, s, err := crypto.Sign(hash[:], priv)
 
 	if err != nil {
 		return err
@@ -424,71 +485,68 @@ func (sb *SendBlock) Sign(pk *ecdsa.PrivateKey) error {
 	return nil
 }
 
+// Source returns the source hash associated with this block.
 func (sb *SendBlock) Source() BlockHash {
 	return BlockHashZero
 }
 
+// Timestamp returns the timestamp of when the block was created.
 func (sb *SendBlock) Timestamp() int64 {
 	return sb.Hashables.Timestamp
 }
 
+// Type returns the type of this block.
 func (sb *SendBlock) Type() BlockType {
 	return Send
 }
 
-func (sb *SendBlock) Verify(pk *ecdsa.PublicKey) bool {
-	hash := sb.Hash()
-	return crypto.Verify(hash[:], pk, sb.Signature.R, sb.Signature.S)
+// Verify verifies whether this block was signed by the given public key owner.
+func (sb *SendBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
+	hash, err := sb.Hash()
+
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.Verify(hash[:], pub, sb.Signature.R, sb.Signature.S), nil
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (sb *SendBlock) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(sb); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(sb)
 }
 
-func (sb *SendBlock) DeserializeJson(r io.Reader) error {
+// DeserializeJSON decodes JSON data.
+func (sb *SendBlock) DeserializeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(sb); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(sb)
 }
 
+// Serialize encodes to byte data using gob.
 func (sb *SendBlock) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(sb); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(sb)
 }
 
-func (sb *SendBlock) SerializeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (sb *SendBlock) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(sb); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(sb)
 }
 
+// String returns a JSON encoded string.
 func (sb *SendBlock) String() (string, error) {
-	return sb.ToJson()
+	return sb.ToJSON()
 }
 
-func (sb *SendBlock) ToJson() (string, error) {
-	if bytes, err := json.Marshal(sb); err != nil {
+// ToJSON returns a JSON encoded string.
+func (sb *SendBlock) ToJSON() (string, error) {
+	bytes, err := json.Marshal(sb)
+
+	if err != nil {
 		return "", err
-	} else {
-		return string(bytes), nil
 	}
+
+	return string(bytes), nil
 }

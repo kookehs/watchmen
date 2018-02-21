@@ -9,6 +9,7 @@ import (
 	"github.com/kookehs/watchmen/primitives"
 )
 
+// Ledger is the structure in which we record accounts and block.
 type Ledger struct {
 	// Mapping of usernames to Account
 	Accounts map[string]Account
@@ -16,6 +17,7 @@ type Ledger struct {
 	Blocks map[string][]primitives.Block
 }
 
+// NewLedger creates and initializes a Ledger for storage of accounts and blocks.
 func NewLedger() *Ledger {
 	return &Ledger{
 		Accounts: make(map[string]Account),
@@ -23,7 +25,8 @@ func NewLedger() *Ledger {
 	}
 }
 
-func (l *Ledger) CreateAccount(s string) error {
+// CreateAccount creates an Account for the given username.
+func (l *Ledger) CreateAccount(username string) error {
 	key, err := primitives.NewKeyForICAP(rand.Reader)
 
 	if err != nil {
@@ -31,7 +34,7 @@ func (l *Ledger) CreateAccount(s string) error {
 	}
 
 	account := MakeAccount(*key)
-	l.Accounts[s] = account
+	l.Accounts[username] = account
 	block, err := account.CreateOpenBlock()
 
 	if err != nil {
@@ -43,42 +46,26 @@ func (l *Ledger) CreateAccount(s string) error {
 	return nil
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (l *Ledger) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(l); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(l)
 }
 
+// Deserialize decodes json data.
 func (l *Ledger) DeserializeJson(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(l); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(l)
 }
 
+// Serialize encodes to byte data using gob.
 func (l *Ledger) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(l); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(l)
 }
 
+// Serialize encodes to json data.
 func (l *Ledger) SerializeJson(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(l); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(l)
 }

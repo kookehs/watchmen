@@ -9,10 +9,18 @@ import (
 	"strconv"
 )
 
+// IBANSize is the fixed length of an International Bank Account Number
 const IBANSize = 34
 
+// IBAN represents an International Bank Account Number
+// which consists of up to 34 alphanumeric characters.
+// Country Code - 2 bytes
+// Checksum - 2 bytes
+// BBAN - 30 bytes
 type IBAN [IBANSize]byte
 
+// MakeIBAN creates and initializes an IBAN from the given bytes.
+// Takes a slice of bytes in the format of an IBAN.
 func MakeIBAN(b []byte) IBAN {
 	var iban IBAN
 	copy(iban[:], b)
@@ -25,6 +33,7 @@ func MakeIBAN(b []byte) IBAN {
 	return iban
 }
 
+// CalculateChecksum calcuates the checksum of the IBAN.
 func (iban *IBAN) CalculateChecksum(i *big.Int) []byte {
 	mod := big.NewInt(97)
 	remainder := new(big.Int)
@@ -40,6 +49,7 @@ func (iban *IBAN) CalculateChecksum(i *big.Int) []byte {
 	return buffer.Bytes()
 }
 
+// ConvertToNumeric converts all letters to their numeric values.
 func (iban *IBAN) ConvertToNumeric(b []byte) []byte {
 	for i := IBANSize - 1; i >= 0; i-- {
 		if (b[i] >= 65) && (b[i] <= 90) {
@@ -52,6 +62,7 @@ func (iban *IBAN) ConvertToNumeric(b []byte) []byte {
 	return b
 }
 
+// ConvertToInteger takes the numeric representation in bytes and converts it to a big.Int.
 func (iban *IBAN) ConvertToInteger(b []byte) *big.Int {
 	var buffer bytes.Buffer
 
@@ -64,6 +75,7 @@ func (iban *IBAN) ConvertToInteger(b []byte) *big.Int {
 	return integer
 }
 
+// SetChecksum sets the 2 bytes allocated for a checksum to the given bytes.
 func (iban *IBAN) SetChecksum(b []byte) {
 	if len(b) == 2 {
 		iban[2] = b[0]
@@ -71,46 +83,31 @@ func (iban *IBAN) SetChecksum(b []byte) {
 	}
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (iban *IBAN) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(iban); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(iban)
 }
 
-func (iban *IBAN) DeseralizeJson(r io.Reader) error {
+// DeseralizeJSON decodes JSON data.
+func (iban *IBAN) DeseralizeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(iban); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(iban)
 }
 
+// Serialize encodes to byte data using gob.
 func (iban *IBAN) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(iban); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(iban)
 }
 
-func (iban *IBAN) SerializeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (iban *IBAN) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(iban); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(iban)
 }
 
+// String returns the string representation of the IBAN.
 func (iban *IBAN) String() string {
 	return string(iban[:])
 }

@@ -8,23 +8,27 @@ import (
 	"math/big"
 )
 
-func ECDSAPublicKeyToOctet(pk *ecdsa.PublicKey) []byte {
-	if pk == nil || pk.X == nil || pk.Y == nil {
+// ECDSAPublicKeyToOctet returns the byte of a point in octect representation.
+func ECDSAPublicKeyToOctet(pub *ecdsa.PublicKey) []byte {
+	if pub == nil || pub.X == nil || pub.Y == nil {
 		return nil
 	}
 
-	return elliptic.Marshal(elliptic.P256(), pk.X, pk.Y)
+	return elliptic.Marshal(elliptic.P256(), pub.X, pub.Y)
 }
 
-func ECDSAPublicKeyToSHA256(pk ecdsa.PublicKey) [sha256.Size]byte {
-	octet := ECDSAPublicKeyToOctet(&pk)
+// ECDSAPublicKeyToSHA256 returns the SHA256 hash minus the first byte.
+func ECDSAPublicKeyToSHA256(pub ecdsa.PublicKey) [sha256.Size]byte {
+	octet := ECDSAPublicKeyToOctet(&pub)
 	return sha256.Sum256(octet[1:])
 }
 
-func Sign(hash []byte, pk *ecdsa.PrivateKey) (*big.Int, *big.Int, error) {
-	return ecdsa.Sign(rand.Reader, pk, hash)
+// Sign signs the given hash with the given private key.
+func Sign(hash []byte, priv *ecdsa.PrivateKey) (*big.Int, *big.Int, error) {
+	return ecdsa.Sign(rand.Reader, priv, hash)
 }
 
-func Verify(hash []byte, pk *ecdsa.PublicKey, r, s *big.Int) bool {
-	return ecdsa.Verify(pk, hash, r, s)
+// Verify verifies the given hash with the given public key.
+func Verify(hash []byte, pub *ecdsa.PublicKey, r, s *big.Int) bool {
+	return ecdsa.Verify(pub, hash, r, s)
 }

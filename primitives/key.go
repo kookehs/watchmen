@@ -12,29 +12,32 @@ import (
 	"github.com/kookehs/watchmen/crypto"
 )
 
+// Key contains all the unique values to generate an address and private key.
 type Key struct {
-	Id         uuid.UUID         `json:"id"`
+	ID         uuid.UUID         `json:"id"`
 	Address    Address           `json:"address"`
 	PrivateKey *ecdsa.PrivateKey `json:"privatekey"`
 }
 
-func NewKeyFromECDSA(pk *ecdsa.PrivateKey) (*Key, error) {
+// NewKeyFromECDSA creates and initializes a Key generated from the given ECDSA private key.
+func NewKeyFromECDSA(priv *ecdsa.PrivateKey) (*Key, error) {
 	id, err := uuid.NewRandom()
 
 	if err != nil {
 		return nil, err
 	}
 
-	hash := crypto.ECDSAPublicKeyToSHA256(pk.PublicKey)
+	hash := crypto.ECDSAPublicKeyToSHA256(priv.PublicKey)
 	address := MakeAddress(hash[:])
 
 	return &Key{
-		Id:         id,
+		ID:         id,
 		Address:    address,
-		PrivateKey: pk,
+		PrivateKey: priv,
 	}, nil
 }
 
+// NewKeyForICAP creates and initializes a Key for the Inter-exchange Client Address Protocol.
 func NewKeyForICAP(r io.Reader) (*Key, error) {
 	noise := make([]byte, 64)
 
@@ -58,42 +61,26 @@ func NewKeyForICAP(r io.Reader) (*Key, error) {
 	return key, nil
 }
 
+// Deserialize decodes byte data encoded by gob.
 func (k *Key) Deserialize(r io.Reader) error {
 	decoder := gob.NewDecoder(r)
-
-	if err := decoder.Decode(k); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(k)
 }
 
-func (k *Key) DeseralizeJson(r io.Reader) error {
+// DeseralizeJSON decodes JSON data.
+func (k *Key) DeseralizeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
-
-	if err := decoder.Decode(k); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(k)
 }
 
+// Serialize encodes to byte data using gob.
 func (k *Key) Serialize(w io.Writer) error {
 	encoder := gob.NewEncoder(w)
-
-	if err := encoder.Encode(k); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(k)
 }
 
-func (k *Key) SerializeJson(w io.Writer) error {
+// SerializeJSON encodes to JSON data.
+func (k *Key) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
-
-	if err := encoder.Encode(k); err != nil {
-		return err
-	}
-
-	return nil
+	return encoder.Encode(k)
 }
