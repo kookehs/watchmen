@@ -28,10 +28,10 @@ func main() {
 	}
 
 	log.Println(account.Key.Address.String())
-	log.Println(account.Bban.String())
-	log.Println(account.Iban.String())
+	log.Println(account.BBAN.String())
+	log.Println(account.IBAN.String())
 
 	ledger := core.NewLedger()
-	ledger.CreateAccount("kookehs")
+	ledger.OpenAccount("kookehs")
 	// log.Println(ledger.Accounts)
 }

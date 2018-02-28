@@ -10,9 +10,11 @@ import (
 
 // Account contains address as well as the key that generated it.
 type Account struct {
-	Bban primitives.BBAN `json:"bban"`
-	Iban primitives.IBAN `json:"iban"`
-	Key  primitives.Key  `josn:"key"`
+	BBAN      primitives.BBAN          `json:"bban"`
+	Candidate bool                     `json:"candidate"`
+	Delegates map[primitives.IBAN]bool `json:"delegates"`
+	IBAN      primitives.IBAN          `json:"iban"`
+	Key       primitives.Key           `josn:"key"`
 }
 
 // MakeAccount creates and initializes an account with the given key.
@@ -21,9 +23,11 @@ func MakeAccount(key primitives.Key) Account {
 	iban := primitives.MakeIBAN([]byte("TV00" + bban.String()))
 
 	return Account{
-		Bban: bban,
-		Iban: iban,
-		Key:  key,
+		BBAN:      bban,
+		Candidate: false,
+		Delegates: make(map[primitives.IBAN]bool),
+		IBAN:      iban,
+		Key:       key,
 	}
 }
 
@@ -38,10 +42,21 @@ func (a *Account) CreateChangeBlock(amt primitives.Amount, delegates []primitive
 	return block, nil
 }
 
+// CreateDelegateBlock creates a signed DelegateBlock with the given arguments.
+func (a *Account) CreateDelegateBlock(amt primitives.Amount, delegate bool, prev primitives.BlockHash) (*primitives.DelegateBlock, error) {
+	block := primitives.NewDelegateBlock(amt, delegate, prev)
+
+	if err := block.Sign(a.Key.PrivateKey); err != nil {
+		return nil, err
+	}
+
+	return block, nil
+}
+
 // CreateOpenBlock creates a signed OpenBlock.
 func (a *Account) CreateOpenBlock() (*primitives.OpenBlock, error) {
 	var balance primitives.Amount
-	block := primitives.NewOpenBlock(balance, a.Iban)
+	block := primitives.NewOpenBlock(balance, a.IBAN)
 
 	if err := block.Sign(a.Key.PrivateKey); err != nil {
 		return nil, err

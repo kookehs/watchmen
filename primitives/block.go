@@ -166,6 +166,134 @@ func (cb *ChangeBlock) ToJSON() (string, error) {
 	return string(bytes), nil
 }
 
+// DelegateBlock represents a change in delegates.
+type DelegateBlock struct {
+	Hashables DelegateHashables `json:"hashables"`
+	Signature Signature         `json:"signature"`
+}
+
+// NewDelegateBlock creates and initializes a DelegateBlock from the given arguments.
+func NewDelegateBlock(amt Amount, delegate bool, prev BlockHash) *DelegateBlock {
+	return &DelegateBlock{
+		Hashables: MakeDelegateHashables(amt, delegate, prev),
+	}
+}
+
+// Balance returns the balance associated with this block.
+func (db *DelegateBlock) Balance() Amount {
+	return db.Hashables.Balance
+}
+
+// Delegates returns the delegates associated with this block.
+func (db *DelegateBlock) Delegates() []IBAN {
+	return nil
+}
+
+// Hash returns the SHA256 hash of the serialized bytes of Hashables.
+func (db *DelegateBlock) Hash() (BlockHash, error) {
+	var buffer bytes.Buffer
+
+	if err := db.Hashables.Serialize(&buffer); err != nil {
+		return BlockHashZero, err
+	}
+
+	return sha256.Sum256(buffer.Bytes()), nil
+}
+
+// Previous returns the previous hash associated with this block.
+func (db *DelegateBlock) Previous() BlockHash {
+	return db.Hashables.Previous
+}
+
+// Root returns the previous hash associated with this block.
+func (db *DelegateBlock) Root() BlockHash {
+	return db.Hashables.Previous
+}
+
+// Sign signs the block with the given private key.
+func (db *DelegateBlock) Sign(priv *ecdsa.PrivateKey) error {
+	hash, err := db.Hash()
+
+	if err != nil {
+		return err
+	}
+
+	r, s, err := crypto.Sign(hash[:], priv)
+
+	if err != nil {
+		return err
+	}
+
+	db.Signature = MakeSignature(r, s)
+	return nil
+}
+
+// Source returns the source hash associated with this block.
+func (db *DelegateBlock) Source() BlockHash {
+	return BlockHashZero
+}
+
+// Timestamp returns the timestamp of when the block was created.
+func (db *DelegateBlock) Timestamp() int64 {
+	return db.Hashables.Timestamp
+}
+
+// Type returns the type of this block.
+func (db *DelegateBlock) Type() BlockType {
+	return Delegate
+}
+
+// Verify verifies whether this block was signed by the given public key owner.
+func (db *DelegateBlock) Verify(pub *ecdsa.PublicKey) bool {
+	hash, err := db.Hash()
+
+	if err != nil {
+		return false
+	}
+
+	return crypto.Verify(hash[:], pub, db.Signature.R, db.Signature.S)
+}
+
+// Deserialize decodes byte data encoded by gob.
+func (db *DelegateBlock) Deserialize(r io.Reader) error {
+	decoder := gob.NewDecoder(r)
+	return decoder.Decode(db)
+}
+
+// DeserializeJSON decodes JSON data.
+func (db *DelegateBlock) DeserializeJSON(r io.Reader) error {
+	decoder := json.NewDecoder(r)
+	return decoder.Decode(db)
+}
+
+// Serialize encodes to byte data using gob.
+func (db *DelegateBlock) Serialize(w io.Writer) error {
+	encoder := gob.NewEncoder(w)
+	return encoder.Encode(db)
+}
+
+// SerializeJSON encodes to JSON data.
+func (db *DelegateBlock) SerializeJSON(w io.Writer) error {
+	encoder := json.NewEncoder(w)
+	return encoder.Encode(db)
+}
+
+// String returns a JSON encoded string.
+func (db *DelegateBlock) String() (string, error) {
+	return db.ToJSON()
+}
+
+// ToJSON returns a JSON encoded string.
+func (db *DelegateBlock) ToJSON() (string, error) {
+	bytes, err := json.Marshal(db)
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes), nil
+}
+
 // OpenBlock represents a openining of an account.
 type OpenBlock struct {
 	Hashables OpenHashables `json:"hashables"`

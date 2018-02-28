@@ -14,19 +14,30 @@ type Ledger struct {
 	// Mapping of usernames to Account
 	Accounts map[string]Account
 	// Mapping of IBAN to []Block
-	Blocks map[string][]primitives.Block
+	Blocks map[primitives.IBAN][]primitives.Block
 }
 
 // NewLedger creates and initializes a Ledger for storage of accounts and blocks.
 func NewLedger() *Ledger {
 	return &Ledger{
 		Accounts: make(map[string]Account),
-		Blocks:   make(map[string][]primitives.Block),
+		Blocks:   make(map[primitives.IBAN][]primitives.Block),
 	}
 }
 
-// CreateAccount creates an Account for the given username.
-func (l *Ledger) CreateAccount(username string) error {
+// LatestBlock returns the newest block in the ledger with the given IBAN.
+func (l *Ledger) LatestBlock(iban primitives.IBAN) primitives.Block {
+	blocks, ok := l.Blocks[iban]
+
+	if ok {
+		return blocks[len(blocks)-1]
+	}
+
+	return nil
+}
+
+// OpenAccount creates an Account for the given username.
+func (l *Ledger) OpenAccount(username string) error {
 	key, err := primitives.NewKeyForICAP(rand.Reader)
 
 	if err != nil {
@@ -41,7 +52,7 @@ func (l *Ledger) CreateAccount(username string) error {
 		return err
 	}
 
-	chain := l.Blocks[account.Iban.String()]
+	chain := l.Blocks[account.IBAN]
 	chain = append(chain, block)
 	return nil
 }

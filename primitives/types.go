@@ -20,6 +20,7 @@ type BlockType uint8
 // Various block types
 const (
 	Change BlockType = iota
+	Delegate
 	Open
 	Receive
 	Send

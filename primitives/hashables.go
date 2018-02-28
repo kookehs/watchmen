@@ -60,6 +60,48 @@ func (ch *ChangeHashables) SerializeJSON(w io.Writer) error {
 	return encoder.Encode(ch)
 }
 
+// DelegateHashables contains elements of a DelegateBlock that can be hashed.
+type DelegateHashables struct {
+	Balance   Amount    `json:"balance"`
+	Delegate  bool      `json:"delegate"`
+	Previous  BlockHash `json:"previous"`
+	Timestamp int64     `json:"timestamp"`
+}
+
+// MakeDelegateHashables creates and initializes a DelegateHashables from the given arguments.
+func MakeDelegateHashables(amt Amount, delegate bool, prev BlockHash) DelegateHashables {
+	return DelegateHashables{
+		Balance:   amt,
+		Delegate:  delegate,
+		Previous:  prev,
+		Timestamp: time.Now().UnixNano(),
+	}
+}
+
+// Deserialize decodes byte data encoded by gob.
+func (dh *DelegateHashables) Deserialize(r io.Reader) error {
+	decoder := gob.NewDecoder(r)
+	return decoder.Decode(dh)
+}
+
+// DeserializeJSON decodes JSON data.
+func (dh *DelegateHashables) DeserializeJSON(r io.Reader) error {
+	decoder := json.NewDecoder(r)
+	return decoder.Decode(dh)
+}
+
+// Serialize encodes to byte data using gob.
+func (dh *DelegateHashables) Serialize(w io.Writer) error {
+	encoder := gob.NewEncoder(w)
+	return encoder.Encode(dh)
+}
+
+// SerializeJSON encodes to JSON data.
+func (dh *DelegateHashables) SerializeJSON(w io.Writer) error {
+	encoder := json.NewEncoder(w)
+	return encoder.Encode(dh)
+}
+
 // OpenHashables contains elements of a OpenBlock that can be hashed.
 type OpenHashables struct {
 	Account   IBAN   `json:"account"`
