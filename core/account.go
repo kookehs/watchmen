@@ -11,20 +11,20 @@ import (
 // Account contains address as well as the key that generated it.
 type Account struct {
 	BBAN      primitives.BBAN          `json:"bban"`
-	Candidate bool                     `json:"candidate"`
+	Delegate  bool                     `json:"delegate"`
 	Delegates map[primitives.IBAN]bool `json:"delegates"`
 	IBAN      primitives.IBAN          `json:"iban"`
-	Key       primitives.Key           `josn:"key"`
+	Key       *primitives.Key          `json:"key"`
 }
 
-// MakeAccount creates and initializes an account with the given key.
-func MakeAccount(key primitives.Key) Account {
+// NewAccount creates and initializes an account with the given key.
+func NewAccount(key *primitives.Key) *Account {
 	bban := primitives.MakeBBAN([]byte(key.Address.String()))
 	iban := primitives.MakeIBAN([]byte("TV00" + bban.String()))
 
-	return Account{
+	return &Account{
 		BBAN:      bban,
-		Candidate: false,
+		Delegate:  false,
 		Delegates: make(map[primitives.IBAN]bool),
 		IBAN:      iban,
 		Key:       key,
@@ -50,6 +50,7 @@ func (a *Account) CreateDelegateBlock(amt primitives.Amount, delegate bool, prev
 		return nil, err
 	}
 
+	a.Delegate = true
 	return block, nil
 }
 

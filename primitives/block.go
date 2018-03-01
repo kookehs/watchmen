@@ -116,14 +116,14 @@ func (cb *ChangeBlock) Type() BlockType {
 }
 
 // Verify verifies whether this block was signed by the given public key owner.
-func (cb *ChangeBlock) Verify(pub *ecdsa.PublicKey) bool {
+func (cb *ChangeBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	hash, err := cb.Hash()
 
 	if err != nil {
-		return false
+		return false, err
 	}
 
-	return crypto.Verify(hash[:], pub, cb.Signature.R, cb.Signature.S)
+	return crypto.Verify(hash[:], pub, cb.Signature.R, cb.Signature.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.
@@ -244,14 +244,14 @@ func (db *DelegateBlock) Type() BlockType {
 }
 
 // Verify verifies whether this block was signed by the given public key owner.
-func (db *DelegateBlock) Verify(pub *ecdsa.PublicKey) bool {
+func (db *DelegateBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	hash, err := db.Hash()
 
 	if err != nil {
-		return false
+		return false, err
 	}
 
-	return crypto.Verify(hash[:], pub, db.Signature.R, db.Signature.S)
+	return crypto.Verify(hash[:], pub, db.Signature.R, db.Signature.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.

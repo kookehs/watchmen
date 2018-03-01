@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/gob"
 	"encoding/json"
+	"errors"
 	"io"
 
 	"github.com/kookehs/watchmen/primitives"
@@ -12,17 +13,26 @@ import (
 // Ledger is the structure in which we record accounts and block.
 type Ledger struct {
 	// Mapping of usernames to Account
-	Accounts map[string]Account
-	// Mapping of IBAN to []Block
-	Blocks map[primitives.IBAN][]primitives.Block
+	Accounts map[string]*Account                    `json:"accounts"`
+	Blocks   map[primitives.IBAN][]primitives.Block `json:"blocks"`
 }
 
 // NewLedger creates and initializes a Ledger for storage of accounts and blocks.
 func NewLedger() *Ledger {
 	return &Ledger{
-		Accounts: make(map[string]Account),
+		Accounts: make(map[string]*Account),
 		Blocks:   make(map[primitives.IBAN][]primitives.Block),
 	}
+}
+
+// AppendBlock appends the given block to the given IBAN's chain.
+func (l *Ledger) AppendBlock(block primitives.Block, iban primitives.IBAN) error {
+	if block == nil {
+		return errors.New("Cannot append nil block")
+	}
+
+	l.Blocks[iban] = append(l.Blocks[iban], block)
+	return nil
 }
 
 // LatestBlock returns the newest block in the ledger with the given IBAN.
@@ -37,24 +47,23 @@ func (l *Ledger) LatestBlock(iban primitives.IBAN) primitives.Block {
 }
 
 // OpenAccount creates an Account for the given username.
-func (l *Ledger) OpenAccount(username string) error {
+func (l *Ledger) OpenAccount(username string) (*Account, error) {
 	key, err := primitives.NewKeyForICAP(rand.Reader)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	account := MakeAccount(*key)
+	account := NewAccount(key)
 	l.Accounts[username] = account
 	block, err := account.CreateOpenBlock()
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	chain := l.Blocks[account.IBAN]
-	chain = append(chain, block)
-	return nil
+	l.AppendBlock(block, account.IBAN)
+	return account, nil
 }
 
 // Deserialize decodes byte data encoded by gob.
