@@ -5,8 +5,13 @@ import (
 	"math/big"
 )
 
-// Amount is a type alias for big.Int that is used to represent balances for blocks.
-type Amount = big.Int
+// Amount is a type alias for big.Float that is used to represent balances for blocks.
+type Amount = *big.Float
+
+// NewAmount returns an initialized Amount with the given amount.
+func NewAmount(amt float64) Amount {
+	return big.NewFloat(amt)
+}
 
 // BlockHash is a sha256 hash of a block.
 type BlockHash [sha256.Size]byte

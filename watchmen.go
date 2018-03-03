@@ -42,27 +42,36 @@ func main() {
 		"+100", "+101",
 	}
 
-	delegate := ledger.Accounts["1"]
+	for i := 0; i < 50; i++ {
+		delegate := ledger.Accounts[strconv.Itoa(i+1)]
+		prev := ledger.LatestBlock(delegate.IBAN)
+		block, err := delegate.CreateDelegateBlock(true, prev)
 
-	prev := ledger.LatestBlock(delegate.IBAN)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 
-	hash, err := prev.Hash()
-
-	if err != nil {
-		log.Println(err)
-		return
+		if err := ledger.AppendBlock(block, delegate.IBAN); err != nil {
+			log.Println(err)
+		}
 	}
 
-	block, err := delegate.CreateDelegateBlock(prev.Balance(), true, hash)
-
-	if err := ledger.AppendBlock(block, delegate.IBAN); err != nil {
+	if err := core.Delegate(account, delegates, ledger); err != nil {
 		log.Println(err)
-		return
 	}
 
-	log.Println(ledger.Blocks[delegate.IBAN])
-	core.Delegate(account, delegates, ledger)
+	if err := core.Delegate(account, []string{"-1"}, ledger); err != nil {
+		log.Println(err)
+	}
+
+	log.Println(ledger.LatestBlock(ledger.Accounts["1"].IBAN).Balance())
+
 	log.Println(account.IBAN.String())
-	log.Println(account.Delegate)
-	log.Println(ledger.Blocks[account.IBAN])
+	log.Println(ledger.LatestBlock(account.IBAN).Balance())
+	// log.Println(ledger.Blocks[account.IBAN])
+
+	for _, block := range ledger.Blocks[account.IBAN] {
+		log.Println(block.String())
+	}
 }
