@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto/ecdsa"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
@@ -32,8 +33,27 @@ func NewAccount(key *primitives.Key) *Account {
 	}
 }
 
+// VerifyBlock returns whether or not the block was signed by the given key.
+func VerifyBlock(block primitives.Block, key *ecdsa.PublicKey) error {
+	verified, err := block.Verify(key)
+
+	if err != nil {
+		return err
+	}
+
+	if !verified {
+		return errors.New("Block was not signed with the given key")
+	}
+
+	return nil
+}
+
 // CreateChangeBlock creates a signed ChangeBlock with the given arguments.
 func (a *Account) CreateChangeBlock(delegates []primitives.IBAN, prev primitives.Block) (*primitives.ChangeBlock, error) {
+	if err := VerifyBlock(prev, &a.Key.PrivateKey.PublicKey); err != nil {
+		return nil, err
+	}
+
 	hash, err := prev.Hash()
 
 	if err != nil {
@@ -51,6 +71,14 @@ func (a *Account) CreateChangeBlock(delegates []primitives.IBAN, prev primitives
 
 // CreateDelegateBlock creates a signed DelegateBlock with the given arguments.
 func (a *Account) CreateDelegateBlock(delegate bool, prev primitives.Block) (*primitives.DelegateBlock, error) {
+	if err := VerifyBlock(prev, &a.Key.PrivateKey.PublicKey); err != nil {
+		return nil, err
+	}
+
+	if a.Delegate {
+		return nil, errors.New("Account is already a delegate")
+	}
+
 	hash, err := prev.Hash()
 
 	if err != nil {
@@ -80,8 +108,22 @@ func (a *Account) CreateOpenBlock() (*primitives.OpenBlock, error) {
 }
 
 // CreateReceiveBlock creates a signed ReceiveBlock with the given arguments.
-func (a *Account) CreateReceiveBlock(amt primitives.Amount, prev primitives.Block, src primitives.BlockHash) (*primitives.ReceiveBlock, error) {
-	hash, err := prev.Hash()
+func (a *Account) CreateReceiveBlock(amt primitives.Amount, key *ecdsa.PublicKey, prev, src primitives.Block) (*primitives.ReceiveBlock, error) {
+	if err := VerifyBlock(prev, &a.Key.PrivateKey.PublicKey); err != nil {
+		return nil, err
+	}
+
+	if err := VerifyBlock(src, key); err != nil {
+		return nil, err
+	}
+
+	prevHash, err := prev.Hash()
+
+	if err != nil {
+		return nil, err
+	}
+
+	srcHash, err := src.Hash()
 
 	if err != nil {
 		return nil, err
@@ -89,7 +131,7 @@ func (a *Account) CreateReceiveBlock(amt primitives.Amount, prev primitives.Bloc
 
 	balance := primitives.NewAmount(0)
 	balance.Add(prev.Balance(), amt)
-	block := primitives.NewReceiveBlock(balance, hash, src)
+	block := primitives.NewReceiveBlock(balance, prevHash, srcHash)
 
 	if err := block.Sign(a.Key.PrivateKey); err != nil {
 		return nil, err
@@ -100,6 +142,10 @@ func (a *Account) CreateReceiveBlock(amt primitives.Amount, prev primitives.Bloc
 
 // CreateSendBlock creates a signed SendBlock with the given arguments.
 func (a *Account) CreateSendBlock(amt primitives.Amount, dest primitives.IBAN, prev primitives.Block) (*primitives.SendBlock, error) {
+	if err := VerifyBlock(prev, &a.Key.PrivateKey.PublicKey); err != nil {
+		return nil, err
+	}
+
 	if prev.Balance().Cmp(amt) == -1 {
 		return nil, errors.New("Insufficient funds")
 	}

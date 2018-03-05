@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/kookehs/watchmen/primitives"
 )
@@ -55,6 +56,7 @@ func (l *Ledger) OpenAccount(username string) (*Account, error) {
 	}
 
 	account := NewAccount(key)
+	username = strings.ToLower(username)
 	l.Accounts[username] = account
 	block, err := account.CreateOpenBlock()
 
