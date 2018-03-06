@@ -20,10 +20,12 @@ type Block interface {
 	Previous() BlockHash
 	Root() BlockHash
 	Sign(*ecdsa.PrivateKey) error
+	SignDelegate(*ecdsa.PrivateKey) error
 	Source() BlockHash
 	Timestamp() int64
 	Type() BlockType
 	Verify(*ecdsa.PublicKey) (bool, error)
+	VerifyDelegate(*ecdsa.PublicKey) (bool, error)
 
 	// Deserialization
 	Deserialize(io.Reader) error
@@ -40,6 +42,7 @@ type Block interface {
 
 // ChangeBlock represents a change in delegates.
 type ChangeBlock struct {
+	Delegate  Signature       `json:"delegate"`
 	Hashables ChangeHashables `json:"hashables"`
 	Signature Signature       `json:"signature"`
 }
@@ -100,6 +103,24 @@ func (cb *ChangeBlock) Sign(priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
+// SignDelegate signs the block with the given private key of a delegate.
+func (cb *ChangeBlock) SignDelegate(priv *ecdsa.PrivateKey) error {
+	hash, err := cb.Hash()
+
+	if err != nil {
+		return err
+	}
+
+	r, s, err := crypto.Sign(hash[:], priv)
+
+	if err != nil {
+		return err
+	}
+
+	cb.Delegate = MakeSignature(r, s)
+	return nil
+}
+
 // Source returns the source hash associated with this block.
 func (cb *ChangeBlock) Source() BlockHash {
 	return BlockHashZero
@@ -124,6 +145,17 @@ func (cb *ChangeBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	}
 
 	return crypto.Verify(hash[:], pub, cb.Signature.R, cb.Signature.S), nil
+}
+
+// VerifyDelegate verifies whether this block was signed by the given public key of a delegate.
+func (cb *ChangeBlock) VerifyDelegate(pub *ecdsa.PublicKey) (bool, error) {
+	hash, err := cb.Hash()
+
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.Verify(hash[:], pub, cb.Delegate.R, cb.Delegate.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.
@@ -168,6 +200,7 @@ func (cb *ChangeBlock) ToJSON() (string, error) {
 
 // DelegateBlock represents a change in delegates.
 type DelegateBlock struct {
+	Delegate  Signature         `json:"delegate"`
 	Hashables DelegateHashables `json:"hashables"`
 	Signature Signature         `json:"signature"`
 }
@@ -228,6 +261,24 @@ func (db *DelegateBlock) Sign(priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
+// SignDelegate signs the block with the given private key of a delegate.
+func (db *DelegateBlock) SignDelegate(priv *ecdsa.PrivateKey) error {
+	hash, err := db.Hash()
+
+	if err != nil {
+		return err
+	}
+
+	r, s, err := crypto.Sign(hash[:], priv)
+
+	if err != nil {
+		return err
+	}
+
+	db.Delegate = MakeSignature(r, s)
+	return nil
+}
+
 // Source returns the source hash associated with this block.
 func (db *DelegateBlock) Source() BlockHash {
 	return BlockHashZero
@@ -252,6 +303,17 @@ func (db *DelegateBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	}
 
 	return crypto.Verify(hash[:], pub, db.Signature.R, db.Signature.S), nil
+}
+
+// VerifyDelegate verifies whether this block was signed by the given public key of a delegate.
+func (db *DelegateBlock) VerifyDelegate(pub *ecdsa.PublicKey) (bool, error) {
+	hash, err := db.Hash()
+
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.Verify(hash[:], pub, db.Delegate.R, db.Delegate.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.
@@ -296,6 +358,7 @@ func (db *DelegateBlock) ToJSON() (string, error) {
 
 // OpenBlock represents a openining of an account.
 type OpenBlock struct {
+	Delegate  Signature     `json:"delegate"`
 	Hashables OpenHashables `json:"hashables"`
 	Signature Signature     `json:"signature"`
 }
@@ -357,6 +420,24 @@ func (ob *OpenBlock) Sign(priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
+// SignDelegate signs the block with the given private key of a delegate.
+func (ob *OpenBlock) SignDelegate(priv *ecdsa.PrivateKey) error {
+	hash, err := ob.Hash()
+
+	if err != nil {
+		return err
+	}
+
+	r, s, err := crypto.Sign(hash[:], priv)
+
+	if err != nil {
+		return err
+	}
+
+	ob.Delegate = MakeSignature(r, s)
+	return nil
+}
+
 // Source returns the source hash associated with this block.
 func (ob *OpenBlock) Source() BlockHash {
 	return BlockHashZero
@@ -381,6 +462,17 @@ func (ob *OpenBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	}
 
 	return crypto.Verify(hash[:], pub, ob.Signature.R, ob.Signature.S), nil
+}
+
+// VerifyDelegate verifies whether this block was signed by the given public key of a delegate.
+func (ob *OpenBlock) VerifyDelegate(pub *ecdsa.PublicKey) (bool, error) {
+	hash, err := ob.Hash()
+
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.Verify(hash[:], pub, ob.Delegate.R, ob.Delegate.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.
@@ -425,6 +517,7 @@ func (ob *OpenBlock) ToJSON() (string, error) {
 
 // ReceiveBlock represents the receiving end of a send transaction.
 type ReceiveBlock struct {
+	Delegate  Signature        `json:"delegate"`
 	Hashables ReceiveHashables `json:"hashables"`
 	Signature Signature        `json:"signature"`
 }
@@ -485,6 +578,24 @@ func (rb *ReceiveBlock) Sign(priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
+// SignDelegate signs the block with the given private key of a delegate.
+func (rb *ReceiveBlock) SignDelegate(priv *ecdsa.PrivateKey) error {
+	hash, err := rb.Hash()
+
+	if err != nil {
+		return err
+	}
+
+	r, s, err := crypto.Sign(hash[:], priv)
+
+	if err != nil {
+		return err
+	}
+
+	rb.Delegate = MakeSignature(r, s)
+	return nil
+}
+
 // Source returns the source hash associated with this block.
 func (rb *ReceiveBlock) Source() BlockHash {
 	return rb.Hashables.Source
@@ -509,6 +620,17 @@ func (rb *ReceiveBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	}
 
 	return crypto.Verify(hash[:], pub, rb.Signature.R, rb.Signature.S), nil
+}
+
+// VerifyDelegate verifies whether this block was signed by the given public key of a delegate.
+func (rb *ReceiveBlock) VerifyDelegate(pub *ecdsa.PublicKey) (bool, error) {
+	hash, err := rb.Hash()
+
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.Verify(hash[:], pub, rb.Delegate.R, rb.Delegate.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.
@@ -553,6 +675,7 @@ func (rb *ReceiveBlock) ToJSON() (string, error) {
 
 // SendBlock represents the sending of a transaction.
 type SendBlock struct {
+	Delegate  Signature     `json:"delegate"`
 	Hashables SendHashables `json:"hashables"`
 	Signature Signature     `json:"signature"`
 }
@@ -613,6 +736,24 @@ func (sb *SendBlock) Sign(priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
+// SignDelegate signs the block with the given private key of a delegate.
+func (sb *SendBlock) SignDelegate(priv *ecdsa.PrivateKey) error {
+	hash, err := sb.Hash()
+
+	if err != nil {
+		return err
+	}
+
+	r, s, err := crypto.Sign(hash[:], priv)
+
+	if err != nil {
+		return err
+	}
+
+	sb.Delegate = MakeSignature(r, s)
+	return nil
+}
+
 // Source returns the source hash associated with this block.
 func (sb *SendBlock) Source() BlockHash {
 	return BlockHashZero
@@ -637,6 +778,17 @@ func (sb *SendBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	}
 
 	return crypto.Verify(hash[:], pub, sb.Signature.R, sb.Signature.S), nil
+}
+
+// VerifyDelegate verifies whether this block was signed by the given public key of a delegate.
+func (sb *SendBlock) VerifyDelegate(pub *ecdsa.PublicKey) (bool, error) {
+	hash, err := sb.Hash()
+
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.Verify(hash[:], pub, sb.Delegate.R, sb.Delegate.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.

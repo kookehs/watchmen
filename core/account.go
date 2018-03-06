@@ -48,67 +48,59 @@ func VerifyBlock(block primitives.Block, key *ecdsa.PublicKey) error {
 	return nil
 }
 
-// CreateChangeBlock creates a signed ChangeBlock with the given arguments.
-func (a *Account) CreateChangeBlock(delegates []primitives.IBAN, prev primitives.Block) (*primitives.ChangeBlock, error) {
+// CreateChangeBlock creates a blueprint for a ChangeBlock with the given arguments.
+func (a *Account) CreateChangeBlock(delegates []primitives.IBAN, prev primitives.Block) (*Blueprint, error) {
 	if err := VerifyBlock(prev, &a.Key.PrivateKey.PublicKey); err != nil {
 		return nil, err
 	}
 
-	hash, err := prev.Hash()
-
-	if err != nil {
-		return nil, err
+	blueprint := &Blueprint{
+		Delegates: delegates,
+		Previous:  prev,
+		Type:      primitives.Change,
 	}
 
-	block := primitives.NewChangeBlock(prev.Balance(), delegates, hash)
-
-	if err := block.Sign(a.Key.PrivateKey); err != nil {
-		return nil, err
-	}
-
-	return block, nil
+	return blueprint, nil
 }
 
-// CreateDelegateBlock creates a signed DelegateBlock with the given arguments.
-func (a *Account) CreateDelegateBlock(delegate bool, prev primitives.Block) (*primitives.DelegateBlock, error) {
+// CreateDelegateBlock creates a blueprint for a DelegateBlock with the given arguments.
+func (a *Account) CreateDelegateBlock(delegate bool, prev primitives.Block) (*Blueprint, error) {
 	if err := VerifyBlock(prev, &a.Key.PrivateKey.PublicKey); err != nil {
 		return nil, err
+	}
+
+	if prev.Balance().Cmp(DelegateFee) == -1 {
+		return nil, errors.New("Insufficient funds")
 	}
 
 	if a.Delegate {
 		return nil, errors.New("Account is already a delegate")
 	}
 
-	hash, err := prev.Hash()
-
-	if err != nil {
-		return nil, err
-	}
-
-	block := primitives.NewDelegateBlock(prev.Balance(), delegate, hash)
-
-	if err := block.Sign(a.Key.PrivateKey); err != nil {
-		return nil, err
+	blueprint := &Blueprint{
+		Delegate: true,
+		Previous: prev,
+		Type:     primitives.Delegate,
 	}
 
 	a.Delegate = true
-	return block, nil
+	return blueprint, nil
 }
 
-// CreateOpenBlock creates a signed OpenBlock.
-func (a *Account) CreateOpenBlock() (*primitives.OpenBlock, error) {
+// CreateOpenBlock creates a blueprint for an OpenBlock.
+func (a *Account) CreateOpenBlock() (*Blueprint, error) {
 	balance := primitives.NewAmount(100)
-	block := primitives.NewOpenBlock(balance, a.IBAN)
 
-	if err := block.Sign(a.Key.PrivateKey); err != nil {
-		return nil, err
+	blueprint := &Blueprint{
+		Amount: balance,
+		Type:   primitives.Open,
 	}
 
-	return block, nil
+	return blueprint, nil
 }
 
-// CreateReceiveBlock creates a signed ReceiveBlock with the given arguments.
-func (a *Account) CreateReceiveBlock(amt primitives.Amount, key *ecdsa.PublicKey, prev, src primitives.Block) (*primitives.ReceiveBlock, error) {
+// CreateReceiveBlock creates a blueprint for a ReceiveBlock with the given arguments.
+func (a *Account) CreateReceiveBlock(amt primitives.Amount, key *ecdsa.PublicKey, prev, src primitives.Block) (*Blueprint, error) {
 	if err := VerifyBlock(prev, &a.Key.PrivateKey.PublicKey); err != nil {
 		return nil, err
 	}
@@ -117,31 +109,21 @@ func (a *Account) CreateReceiveBlock(amt primitives.Amount, key *ecdsa.PublicKey
 		return nil, err
 	}
 
-	prevHash, err := prev.Hash()
-
-	if err != nil {
-		return nil, err
-	}
-
-	srcHash, err := src.Hash()
-
-	if err != nil {
-		return nil, err
-	}
-
 	balance := primitives.NewAmount(0)
 	balance.Add(prev.Balance(), amt)
-	block := primitives.NewReceiveBlock(balance, prevHash, srcHash)
 
-	if err := block.Sign(a.Key.PrivateKey); err != nil {
-		return nil, err
+	blueprint := &Blueprint{
+		Amount:   balance,
+		Previous: prev,
+		Source:   src,
+		Type:     primitives.Receive,
 	}
 
-	return block, nil
+	return blueprint, nil
 }
 
-// CreateSendBlock creates a signed SendBlock with the given arguments.
-func (a *Account) CreateSendBlock(amt primitives.Amount, dest primitives.IBAN, prev primitives.Block) (*primitives.SendBlock, error) {
+// CreateSendBlock creates a blueprint for a SendBlock with the given arguments.
+func (a *Account) CreateSendBlock(amt primitives.Amount, dst primitives.IBAN, prev primitives.Block) (*Blueprint, error) {
 	if err := VerifyBlock(prev, &a.Key.PrivateKey.PublicKey); err != nil {
 		return nil, err
 	}
@@ -150,21 +132,17 @@ func (a *Account) CreateSendBlock(amt primitives.Amount, dest primitives.IBAN, p
 		return nil, errors.New("Insufficient funds")
 	}
 
-	hash, err := prev.Hash()
-
-	if err != nil {
-		return nil, err
-	}
-
 	balance := primitives.NewAmount(0)
 	balance.Sub(prev.Balance(), amt)
-	block := primitives.NewSendBlock(balance, dest, hash)
 
-	if err := block.Sign(a.Key.PrivateKey); err != nil {
-		return nil, err
+	blueprint := &Blueprint{
+		Amount:      balance,
+		Destination: dst,
+		Previous:    prev,
+		Type:        primitives.Send,
 	}
 
-	return block, nil
+	return blueprint, nil
 }
 
 // Deserialize decodes byte data encoded by gob.

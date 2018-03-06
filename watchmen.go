@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/kookehs/watchmen/core"
+	"github.com/kookehs/watchmen/primitives"
 )
 
 func main() {
@@ -14,8 +15,11 @@ func main() {
 	// TODO: Implement network for blockchain.
 
 	// Move the below to respective test files.
+	dpos := core.NewDPoS()
 	ledger := core.NewLedger()
-	account, err := ledger.OpenAccount("kookehs")
+	node := core.NewNode()
+	go node.Listen(dpos, ledger)
+	account, err := ledger.OpenAccount(node, "kookehs")
 
 	if err != nil {
 		log.Println(err)
@@ -23,7 +27,7 @@ func main() {
 	}
 
 	for i := 0; i < 101; i++ {
-		if _, err := ledger.OpenAccount(strconv.Itoa(i + 1)); err != nil {
+		if _, err := ledger.OpenAccount(node, strconv.Itoa(i+1)); err != nil {
 			log.Println(err)
 			return
 		}
@@ -45,23 +49,29 @@ func main() {
 	for i := 0; i < 50; i++ {
 		delegate := ledger.Accounts[strconv.Itoa(i+1)]
 		prev := ledger.LatestBlock(delegate.IBAN)
-		block, err := delegate.CreateDelegateBlock(true, prev)
+		blueprint, err := delegate.CreateDelegateBlock(true, prev)
 
 		if err != nil {
 			log.Println(err)
 			continue
 		}
 
-		if err := ledger.AppendBlock(block, delegate.IBAN); err != nil {
-			log.Println(err)
+		output := make(chan primitives.Block)
+		node.Input <- core.Request{Account: delegate, Blueprint: blueprint, Output: output}
+		block := <-output
+		close(output)
+
+		if block == nil {
+			log.Println("Unable to forge block")
+			continue
 		}
 	}
 
-	if err := core.Delegate(account, delegates, ledger); err != nil {
+	if err := dpos.Elect(account, delegates, ledger, node); err != nil {
 		log.Println(err)
 	}
 
-	if err := core.Delegate(account, []string{"-1"}, ledger); err != nil {
+	if err := dpos.Elect(account, []string{"-1"}, ledger, node); err != nil {
 		log.Println(err)
 	}
 

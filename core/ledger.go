@@ -48,7 +48,7 @@ func (l *Ledger) LatestBlock(iban primitives.IBAN) primitives.Block {
 }
 
 // OpenAccount creates an Account for the given username.
-func (l *Ledger) OpenAccount(username string) (*Account, error) {
+func (l *Ledger) OpenAccount(node *Node, username string) (*Account, error) {
 	key, err := primitives.NewKeyForICAP(rand.Reader)
 
 	if err != nil {
@@ -58,13 +58,21 @@ func (l *Ledger) OpenAccount(username string) (*Account, error) {
 	account := NewAccount(key)
 	username = strings.ToLower(username)
 	l.Accounts[username] = account
-	block, err := account.CreateOpenBlock()
+	blueprint, err := account.CreateOpenBlock()
 
 	if err != nil {
 		return nil, err
 	}
 
-	l.AppendBlock(block, account.IBAN)
+	output := make(chan primitives.Block)
+	node.Input <- Request{Account: account, Blueprint: blueprint, Output: output}
+	block := <-output
+	close(output)
+
+	if block == nil {
+		return nil, errors.New("Unable to forge block")
+	}
+
 	return account, nil
 }
 

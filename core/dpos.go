@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -10,28 +11,41 @@ import (
 
 // Defines limits and fees for the system
 var (
+	// Fees
+	DelegateFee primitives.Amount = primitives.NewAmount(25)
+	VotingFee   primitives.Amount = primitives.NewAmount(1)
+
 	// Limits
 	MaxDelegatesPerAccount int = 101
 	MaxDelegatesPerBlock   int = 33
 	MaxForgers             int = 101
 
-	// Fees
-	DelegateFee          primitives.Amount = primitives.NewAmount(25)
-	MinimumDelegateStake primitives.Amount = primitives.NewAmount(25)
-	VotingFee            primitives.Amount = primitives.NewAmount(1)
+	// Rewards
+	ForgeReward primitives.Amount = primitives.NewAmount(5)
 )
 
-// Delegate contains an IBAN and their total weight.
+// Blueprint contains information used to create a block.
+type Blueprint struct {
+	Amount      primitives.Amount
+	Delegate    bool
+	Delegates   []primitives.IBAN
+	Destination primitives.IBAN
+	Type        primitives.BlockType
+	Previous    primitives.Block
+	Source      primitives.Block
+}
+
+// Delegate contains an Account and their total weight.
 type Delegate struct {
-	IBAN   primitives.IBAN
-	Weight primitives.Amount
+	Account *Account
+	Weight  primitives.Amount
 }
 
 // NewDelegate returns a pointer to a Delegate with a weight of 0.
-func NewDelegate(iban primitives.IBAN) *Delegate {
+func NewDelegate(account *Account) *Delegate {
 	return &Delegate{
-		IBAN:   iban,
-		Weight: primitives.NewAmount(0),
+		Account: account,
+		Weight:  primitives.NewAmount(0),
 	}
 }
 
@@ -41,7 +55,15 @@ func NewDelegate(iban primitives.IBAN) *Delegate {
 type DPoS struct {
 	// All delegates with their respective total weight
 	Delegates []*Delegate
-	Forger    uint64
+	Round     *Round
+}
+
+// NewDPoS returns a pointer to an initialized DPoS.
+func NewDPoS() *DPoS {
+	return &DPoS{
+		Delegates: make([]*Delegate, 0),
+		Round:     NewRound(),
+	}
 }
 
 // CheckMaxDelegateLimit ensures accounts don't vote for more delegates than MaxDelegates.
@@ -73,9 +95,17 @@ func CheckMaxDelegateLimit(account *Account, delegates []string) error {
 	return nil
 }
 
+// ParseDelegateString returns the symbol and Account associated with the given delegate string.
+func ParseDelegateString(delegate string, ledger *Ledger) (byte, *Account) {
+	symbol := byte(delegate[0])
+	username := strings.ToLower(delegate[1:])
+	account := ledger.Accounts[username]
+	return symbol, account
+}
+
 // ParseDelegates updates the delegates for the given Account.
 // It may create multiple ChangeBlocks depending on the number of delegates.
-func ParseDelegates(account *Account, delegates []string, ledger *Ledger) ([]*Account, error) {
+func (d *DPoS) ParseDelegates(account *Account, delegates []string, ledger *Ledger, node *Node) ([]*Account, error) {
 	length := len(delegates)
 
 	if length == 0 {
@@ -89,7 +119,7 @@ func ParseDelegates(account *Account, delegates []string, ledger *Ledger) ([]*Ac
 	}
 
 	accounts := make([]*Account, 0)
-	elected, err := ParseDelegates(account, delegates[split:], ledger)
+	elected, err := d.ParseDelegates(account, delegates[split:], ledger, node)
 
 	if err != nil {
 		return nil, err
@@ -130,55 +160,104 @@ func ParseDelegates(account *Account, delegates []string, ledger *Ledger) ([]*Ac
 	}
 
 	prev := ledger.LatestBlock(account.IBAN)
-	block, err := account.CreateChangeBlock(ibans, prev)
+	blueprint, err := account.CreateChangeBlock(ibans, prev)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if err := ledger.AppendBlock(block, account.IBAN); err != nil {
-		return nil, err
+	output := make(chan primitives.Block)
+	node.Input <- Request{Account: account, Blueprint: blueprint, Output: output}
+	block := <-output
+	close(output)
+
+	if block == nil {
+		return nil, errors.New("Unable to forge block")
 	}
 
 	return accounts, nil
 }
 
-// ParseDelegateString returns the symbol and Account associated with the given delegate string.
-func ParseDelegateString(delegate string, ledger *Ledger) (byte, *Account) {
-	symbol := byte(delegate[0])
-	username := strings.ToLower(delegate[1:])
-	account := ledger.Accounts[username]
-	return symbol, account
-}
-
-// Delegate process the given delegates and distribute the fee to newly elected delegates.
-func (d *DPoS) Delegate(account *Account, delegates []string, ledger *Ledger) error {
+// Elect process the given delegates and distribute the fee to newly elected delegates.
+func (d *DPoS) Elect(account *Account, delegates []string, ledger *Ledger, node *Node) error {
 	err := CheckMaxDelegateLimit(account, delegates)
 
 	if err != nil {
 		return err
 	}
 
-	_, err = ParseDelegates(account, delegates, ledger)
+	_, err = d.ParseDelegates(account, delegates, ledger, node)
 
 	if err != nil {
 		return err
 	}
 
-	// TODO: Voting fee should be given to the current forger
 	// TODO: Update delegate weights
 	return nil
 }
 
-// TODO: Generate a reward after each round and distribute to
-// forger and their supporters.
-
 // Round is the system in which each Delegate will forge a single block.
 type Round struct {
-	Delegate []*Delegate
-	Index    uint64
+	Forgers []*Delegate
+	Index   int
 }
 
-func (r *Round) Forge() {
+// NewRound returns a pointer to an initialized Round.
+func NewRound() *Round {
+	return &Round{
+		Forgers: make([]*Delegate, MaxForgers),
+		Index:   0,
+	}
+}
 
+// Forge will have the Delegate at Index create the next block.
+func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block, error) {
+	var block primitives.Block
+
+	prev := blueprint.Previous
+	hash, err := prev.Hash()
+
+	if err != nil {
+		return nil, err
+	}
+
+	forger := r.Forgers[r.Index]
+	r.Index = (r.Index + 1) % MaxForgers
+
+	switch blueprint.Type {
+	case primitives.Change:
+		block = primitives.NewChangeBlock(prev.Balance(), blueprint.Delegates, hash)
+	case primitives.Delegate:
+		block = primitives.NewDelegateBlock(prev.Balance(), blueprint.Delegate, hash)
+	case primitives.Open:
+		block = primitives.NewOpenBlock(blueprint.Amount, account.IBAN)
+	case primitives.Receive:
+		srcHash, err := blueprint.Source.Hash()
+
+		if err != nil {
+			return nil, err
+		}
+
+		block = primitives.NewReceiveBlock(blueprint.Amount, hash, srcHash)
+	case primitives.Send:
+		block = primitives.NewSendBlock(blueprint.Amount, blueprint.Destination, hash)
+	default:
+		return nil, errors.New("Invalid block type")
+	}
+
+	if err := block.SignDelegate(forger.Account.Key.PrivateKey); err != nil {
+		return nil, err
+	}
+
+	return block, nil
+}
+
+// Forger returns the current forger.
+func (r *Round) Forger() *Delegate {
+	forger := r.Forgers[r.Index]
+	return forger
+}
+
+func (r *Round) UpdateDelegates(delegates []*Delegate) {
+	// TODO: Check if there are new forgers and update
 }
