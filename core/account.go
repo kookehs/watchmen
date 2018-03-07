@@ -77,18 +77,19 @@ func (a *Account) CreateDelegateBlock(delegate bool, prev primitives.Block) (*Bl
 		return nil, errors.New("Account is already a delegate")
 	}
 
+	// TODO: Allow a % share to supporters.
 	blueprint := &Blueprint{
 		Delegate: true,
 		Previous: prev,
 		Type:     primitives.Delegate,
 	}
 
-	a.Delegate = true
 	return blueprint, nil
 }
 
 // CreateOpenBlock creates a blueprint for an OpenBlock.
 func (a *Account) CreateOpenBlock() (*Blueprint, error) {
+	// TODO: Generate a genesis account with a balance instead.
 	balance := primitives.NewAmount(100)
 
 	blueprint := &Blueprint{

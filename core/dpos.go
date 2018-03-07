@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/kookehs/watchmen/primitives"
@@ -21,7 +22,7 @@ var (
 	MaxForgers             int = 101
 
 	// Rewards
-	ForgeReward primitives.Amount = primitives.NewAmount(5)
+	ForgeReward primitives.Amount = primitives.NewAmount(1)
 )
 
 // Blueprint contains information used to create a block.
@@ -49,21 +50,67 @@ func NewDelegate(account *Account) *Delegate {
 	}
 }
 
-// TODO: Add sorting functions.
+// Delegates is a wrapper type for sorting
+type Delegates []*Delegate
+
+// Len returns the length of Delegates.
+func (d Delegates) Len() int {
+	return len(d)
+}
+
+// Swap swaps delegates at position i and j.
+func (d Delegates) Swap(i, j int) {
+	d[i], d[j] = d[j], d[i]
+}
+
+// Less returns if the weight at i is less than j.
+// Sort in descending order because we want those with highest weights.
+func (d Delegates) Less(i, j int) bool {
+	return (d[i].Weight.Cmp(d[j].Weight) == 1)
+}
 
 // DPoS contains variables and logic related to the delegated proof of stake.
 type DPoS struct {
 	// All delegates with their respective total weight
-	Delegates []*Delegate
+	Delegates Delegates
 	Round     *Round
 }
 
 // NewDPoS returns a pointer to an initialized DPoS.
 func NewDPoS() *DPoS {
 	return &DPoS{
-		Delegates: make([]*Delegate, 0),
-		Round:     NewRound(),
+		Delegates: make(Delegates, 0),
+		Round:     NewRound(Delegates{}),
 	}
+}
+
+// CalculateWeights iterates through all accounts and their delegates.
+// The final weight is the sum of the amounts each supporter holds.
+func CalculateWeights(ledger *Ledger) Delegates {
+	// Map for quick look up. Slice for sorting.
+	delegates := make(map[primitives.IBAN]*Delegate)
+	values := make(Delegates, 0)
+
+	for _, account := range ledger.Accounts {
+		log.Println(len(ledger.Accounts))
+		log.Println(account.IBAN.String())
+		log.Println(ledger.Blocks[account.IBAN])
+		log.Println(ledger.LatestBlock(account.IBAN))
+		weight := ledger.LatestBlock(account.IBAN).Balance()
+
+		for iban, _ := range account.Delegates {
+			if _, exist := delegates[iban]; !exist {
+				elected := NewDelegate(ledger.Accounts[iban])
+				delegates[iban] = elected
+				values = append(values, elected)
+			}
+
+			delegates[iban].Weight.Add(delegates[iban].Weight, weight)
+		}
+	}
+
+	sort.Sort(values)
+	return values
 }
 
 // CheckMaxDelegateLimit ensures accounts don't vote for more delegates than MaxDelegates.
@@ -95,11 +142,29 @@ func CheckMaxDelegateLimit(account *Account, delegates []string) error {
 	return nil
 }
 
+// Elect processes the given delegates and distribute the fee to newly elected delegates.
+func (d *DPoS) Elect(account *Account, delegates []string, ledger *Ledger, node *Node) error {
+	err := CheckMaxDelegateLimit(account, delegates)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = d.ParseDelegates(account, delegates, ledger, node)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ParseDelegateString returns the symbol and Account associated with the given delegate string.
 func ParseDelegateString(delegate string, ledger *Ledger) (byte, *Account) {
 	symbol := byte(delegate[0])
 	username := strings.ToLower(delegate[1:])
-	account := ledger.Accounts[username]
+	user := ledger.Users[username]
+	account := ledger.Accounts[user]
 	return symbol, account
 }
 
@@ -167,7 +232,7 @@ func (d *DPoS) ParseDelegates(account *Account, delegates []string, ledger *Ledg
 	}
 
 	output := make(chan primitives.Block)
-	node.Input <- Request{Account: account, Blueprint: blueprint, Output: output}
+	node.Input <- NewRequest(account, blueprint, output)
 	block := <-output
 	close(output)
 
@@ -178,34 +243,32 @@ func (d *DPoS) ParseDelegates(account *Account, delegates []string, ledger *Ledg
 	return accounts, nil
 }
 
-// Elect process the given delegates and distribute the fee to newly elected delegates.
-func (d *DPoS) Elect(account *Account, delegates []string, ledger *Ledger, node *Node) error {
-	err := CheckMaxDelegateLimit(account, delegates)
-
-	if err != nil {
-		return err
+// Update checks if a new round needs to be created and returns the current forger.
+func (d *DPoS) Update(ledger *Ledger) *Delegate {
+	if (len(d.Round.Forgers) == 0) || ((d.Round.Index % len(d.Round.Forgers)) == 0) {
+		d.Delegates = CalculateWeights(ledger)
+		d.Round = NewRound(d.Delegates)
 	}
 
-	_, err = d.ParseDelegates(account, delegates, ledger, node)
-
-	if err != nil {
-		return err
-	}
-
-	// TODO: Update delegate weights
-	return nil
+	return d.Round.Forger()
 }
 
 // Round is the system in which each Delegate will forge a single block.
 type Round struct {
-	Forgers []*Delegate
+	Forgers Delegates
 	Index   int
 }
 
 // NewRound returns a pointer to an initialized Round.
-func NewRound() *Round {
+func NewRound(delegates Delegates) *Round {
+	split := MaxForgers
+
+	if len(delegates) < split {
+		split = len(delegates)
+	}
+
 	return &Round{
-		Forgers: make([]*Delegate, MaxForgers),
+		Forgers: delegates[:split],
 		Index:   0,
 	}
 }
@@ -222,7 +285,7 @@ func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block,
 	}
 
 	forger := r.Forgers[r.Index]
-	r.Index = (r.Index + 1) % MaxForgers
+	r.Index++
 
 	switch blueprint.Type {
 	case primitives.Change:
@@ -245,7 +308,7 @@ func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block,
 		return nil, errors.New("Invalid block type")
 	}
 
-	if err := block.SignDelegate(forger.Account.Key.PrivateKey); err != nil {
+	if err := block.SignWitness(forger.Account.Key.PrivateKey); err != nil {
 		return nil, err
 	}
 
@@ -256,8 +319,4 @@ func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block,
 func (r *Round) Forger() *Delegate {
 	forger := r.Forgers[r.Index]
 	return forger
-}
-
-func (r *Round) UpdateDelegates(delegates []*Delegate) {
-	// TODO: Check if there are new forgers and update
 }

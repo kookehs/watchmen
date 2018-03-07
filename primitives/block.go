@@ -20,12 +20,12 @@ type Block interface {
 	Previous() BlockHash
 	Root() BlockHash
 	Sign(*ecdsa.PrivateKey) error
-	SignDelegate(*ecdsa.PrivateKey) error
+	SignWitness(*ecdsa.PrivateKey) error
 	Source() BlockHash
 	Timestamp() int64
 	Type() BlockType
 	Verify(*ecdsa.PublicKey) (bool, error)
-	VerifyDelegate(*ecdsa.PublicKey) (bool, error)
+	VerifyWitness(*ecdsa.PublicKey) (bool, error)
 
 	// Deserialization
 	Deserialize(io.Reader) error
@@ -103,8 +103,8 @@ func (cb *ChangeBlock) Sign(priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
-// SignDelegate signs the block with the given private key of a delegate.
-func (cb *ChangeBlock) SignDelegate(priv *ecdsa.PrivateKey) error {
+// SignWitness signs the block with the given private key of a delegate.
+func (cb *ChangeBlock) SignWitness(priv *ecdsa.PrivateKey) error {
 	hash, err := cb.Hash()
 
 	if err != nil {
@@ -147,8 +147,8 @@ func (cb *ChangeBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	return crypto.Verify(hash[:], pub, cb.Signature.R, cb.Signature.S), nil
 }
 
-// VerifyDelegate verifies whether this block was signed by the given public key of a delegate.
-func (cb *ChangeBlock) VerifyDelegate(pub *ecdsa.PublicKey) (bool, error) {
+// VerifyWitness verifies whether this block was signed by the given public key of a delegate.
+func (cb *ChangeBlock) VerifyWitness(pub *ecdsa.PublicKey) (bool, error) {
 	hash, err := cb.Hash()
 
 	if err != nil {
@@ -261,8 +261,8 @@ func (db *DelegateBlock) Sign(priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
-// SignDelegate signs the block with the given private key of a delegate.
-func (db *DelegateBlock) SignDelegate(priv *ecdsa.PrivateKey) error {
+// SignWitness signs the block with the given private key of a delegate.
+func (db *DelegateBlock) SignWitness(priv *ecdsa.PrivateKey) error {
 	hash, err := db.Hash()
 
 	if err != nil {
@@ -305,8 +305,8 @@ func (db *DelegateBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	return crypto.Verify(hash[:], pub, db.Signature.R, db.Signature.S), nil
 }
 
-// VerifyDelegate verifies whether this block was signed by the given public key of a delegate.
-func (db *DelegateBlock) VerifyDelegate(pub *ecdsa.PublicKey) (bool, error) {
+// VerifyWitness verifies whether this block was signed by the given public key of a delegate.
+func (db *DelegateBlock) VerifyWitness(pub *ecdsa.PublicKey) (bool, error) {
 	hash, err := db.Hash()
 
 	if err != nil {
@@ -420,8 +420,8 @@ func (ob *OpenBlock) Sign(priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
-// SignDelegate signs the block with the given private key of a delegate.
-func (ob *OpenBlock) SignDelegate(priv *ecdsa.PrivateKey) error {
+// SignWitness signs the block with the given private key of a delegate.
+func (ob *OpenBlock) SignWitness(priv *ecdsa.PrivateKey) error {
 	hash, err := ob.Hash()
 
 	if err != nil {
@@ -464,8 +464,8 @@ func (ob *OpenBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	return crypto.Verify(hash[:], pub, ob.Signature.R, ob.Signature.S), nil
 }
 
-// VerifyDelegate verifies whether this block was signed by the given public key of a delegate.
-func (ob *OpenBlock) VerifyDelegate(pub *ecdsa.PublicKey) (bool, error) {
+// VerifyWitness verifies whether this block was signed by the given public key of a delegate.
+func (ob *OpenBlock) VerifyWitness(pub *ecdsa.PublicKey) (bool, error) {
 	hash, err := ob.Hash()
 
 	if err != nil {
@@ -578,8 +578,8 @@ func (rb *ReceiveBlock) Sign(priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
-// SignDelegate signs the block with the given private key of a delegate.
-func (rb *ReceiveBlock) SignDelegate(priv *ecdsa.PrivateKey) error {
+// SignWitness signs the block with the given private key of a delegate.
+func (rb *ReceiveBlock) SignWitness(priv *ecdsa.PrivateKey) error {
 	hash, err := rb.Hash()
 
 	if err != nil {
@@ -622,8 +622,8 @@ func (rb *ReceiveBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	return crypto.Verify(hash[:], pub, rb.Signature.R, rb.Signature.S), nil
 }
 
-// VerifyDelegate verifies whether this block was signed by the given public key of a delegate.
-func (rb *ReceiveBlock) VerifyDelegate(pub *ecdsa.PublicKey) (bool, error) {
+// VerifyWitness verifies whether this block was signed by the given public key of a delegate.
+func (rb *ReceiveBlock) VerifyWitness(pub *ecdsa.PublicKey) (bool, error) {
 	hash, err := rb.Hash()
 
 	if err != nil {
@@ -736,8 +736,8 @@ func (sb *SendBlock) Sign(priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
-// SignDelegate signs the block with the given private key of a delegate.
-func (sb *SendBlock) SignDelegate(priv *ecdsa.PrivateKey) error {
+// SignWitness signs the block with the given private key of a delegate.
+func (sb *SendBlock) SignWitness(priv *ecdsa.PrivateKey) error {
 	hash, err := sb.Hash()
 
 	if err != nil {
@@ -780,8 +780,8 @@ func (sb *SendBlock) Verify(pub *ecdsa.PublicKey) (bool, error) {
 	return crypto.Verify(hash[:], pub, sb.Signature.R, sb.Signature.S), nil
 }
 
-// VerifyDelegate verifies whether this block was signed by the given public key of a delegate.
-func (sb *SendBlock) VerifyDelegate(pub *ecdsa.PublicKey) (bool, error) {
+// VerifyWitness verifies whether this block was signed by the given public key of a delegate.
+func (sb *SendBlock) VerifyWitness(pub *ecdsa.PublicKey) (bool, error) {
 	hash, err := sb.Hash()
 
 	if err != nil {

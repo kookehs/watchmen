@@ -13,16 +13,17 @@ import (
 
 // Ledger is the structure in which we record accounts and block.
 type Ledger struct {
-	// Mapping of usernames to Account
-	Accounts map[string]*Account                    `json:"accounts"`
+	Accounts map[primitives.IBAN]*Account           `json:"accounts"`
 	Blocks   map[primitives.IBAN][]primitives.Block `json:"blocks"`
+	Users    map[string]primitives.IBAN             `json:"users"`
 }
 
 // NewLedger creates and initializes a Ledger for storage of accounts and blocks.
 func NewLedger() *Ledger {
 	return &Ledger{
-		Accounts: make(map[string]*Account),
+		Accounts: make(map[primitives.IBAN]*Account),
 		Blocks:   make(map[primitives.IBAN][]primitives.Block),
+		Users:    make(map[string]primitives.IBAN),
 	}
 }
 
@@ -56,8 +57,6 @@ func (l *Ledger) OpenAccount(node *Node, username string) (*Account, error) {
 	}
 
 	account := NewAccount(key)
-	username = strings.ToLower(username)
-	l.Accounts[username] = account
 	blueprint, err := account.CreateOpenBlock()
 
 	if err != nil {
@@ -65,7 +64,7 @@ func (l *Ledger) OpenAccount(node *Node, username string) (*Account, error) {
 	}
 
 	output := make(chan primitives.Block)
-	node.Input <- Request{Account: account, Blueprint: blueprint, Output: output}
+	node.Input <- NewRequest(account, blueprint, output)
 	block := <-output
 	close(output)
 
@@ -73,6 +72,9 @@ func (l *Ledger) OpenAccount(node *Node, username string) (*Account, error) {
 		return nil, errors.New("Unable to forge block")
 	}
 
+	username = strings.ToLower(username)
+	l.Users[username] = account.IBAN
+	l.Accounts[account.IBAN] = account
 	return account, nil
 }
 

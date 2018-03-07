@@ -15,8 +15,8 @@ func main() {
 	// TODO: Implement network for blockchain.
 
 	// Move the below to respective test files.
-	dpos := core.NewDPoS()
 	ledger := core.NewLedger()
+	dpos := core.NewDPoS()
 	node := core.NewNode()
 	go node.Listen(dpos, ledger)
 	account, err := ledger.OpenAccount(node, "kookehs")
@@ -25,6 +25,15 @@ func main() {
 		log.Println(err)
 		return
 	}
+
+	blueprint, err := account.CreateDelegateBlock(true, ledger.LatestBlock(account.IBAN))
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	node.Input <- core.NewRequest(account, blueprint, nil)
 
 	for i := 0; i < 101; i++ {
 		if _, err := ledger.OpenAccount(node, strconv.Itoa(i+1)); err != nil {
@@ -47,7 +56,8 @@ func main() {
 	}
 
 	for i := 0; i < 50; i++ {
-		delegate := ledger.Accounts[strconv.Itoa(i+1)]
+		user := ledger.Users[strconv.Itoa(i+1)]
+		delegate := ledger.Accounts[user]
 		prev := ledger.LatestBlock(delegate.IBAN)
 		blueprint, err := delegate.CreateDelegateBlock(true, prev)
 
@@ -57,7 +67,7 @@ func main() {
 		}
 
 		output := make(chan primitives.Block)
-		node.Input <- core.Request{Account: delegate, Blueprint: blueprint, Output: output}
+		node.Input <- core.NewRequest(delegate, blueprint, output)
 		block := <-output
 		close(output)
 
@@ -75,7 +85,7 @@ func main() {
 		log.Println(err)
 	}
 
-	log.Println(ledger.LatestBlock(ledger.Accounts["1"].IBAN).Balance())
+	log.Println(ledger.LatestBlock(ledger.Accounts[ledger.Users["1"]].IBAN).Balance())
 
 	log.Println(account.IBAN.String())
 	log.Println(ledger.LatestBlock(account.IBAN).Balance())
