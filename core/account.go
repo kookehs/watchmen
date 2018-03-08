@@ -88,12 +88,9 @@ func (a *Account) CreateDelegateBlock(delegate bool, prev primitives.Block) (*Bl
 }
 
 // CreateOpenBlock creates a blueprint for an OpenBlock.
-func (a *Account) CreateOpenBlock() (*Blueprint, error) {
-	// TODO: Generate a genesis account with a balance instead.
-	balance := primitives.NewAmount(100)
-
+func (a *Account) CreateOpenBlock(amt primitives.Amount) (*Blueprint, error) {
 	blueprint := &Blueprint{
-		Amount: balance,
+		Amount: amt,
 		Type:   primitives.Open,
 	}
 

@@ -308,6 +308,10 @@ func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block,
 		return nil, errors.New("Invalid block type")
 	}
 
+	if block == nil {
+		return nil, errors.New("Unabled to forge block")
+	}
+
 	if err := block.SignWitness(forger.Account.Key.PrivateKey); err != nil {
 		return nil, err
 	}

@@ -16,6 +16,12 @@ func main() {
 
 	// Move the below to respective test files.
 	ledger := core.NewLedger()
+
+	if _, err := ledger.OpenGenesisAccount("Genesis Account"); err != nil {
+		log.Println(err)
+		return
+	}
+
 	dpos := core.NewDPoS()
 	node := core.NewNode()
 	go node.Listen(dpos, ledger)

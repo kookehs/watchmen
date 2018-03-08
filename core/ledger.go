@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 
@@ -50,6 +51,10 @@ func (l *Ledger) LatestBlock(iban primitives.IBAN) primitives.Block {
 
 // OpenAccount creates an Account for the given username.
 func (l *Ledger) OpenAccount(node *Node, username string) (*Account, error) {
+	if _, exist := l.Users[username]; exist {
+		return nil, fmt.Errorf("Account for %v already exists", username)
+	}
+
 	key, err := primitives.NewKeyForICAP(rand.Reader)
 
 	if err != nil {
@@ -57,11 +62,16 @@ func (l *Ledger) OpenAccount(node *Node, username string) (*Account, error) {
 	}
 
 	account := NewAccount(key)
-	blueprint, err := account.CreateOpenBlock()
+	amount := primitives.NewAmount(0)
+	blueprint, err := account.CreateOpenBlock(amount)
 
 	if err != nil {
 		return nil, err
 	}
+
+	username = strings.ToLower(username)
+	l.Users[username] = account.IBAN
+	l.Accounts[account.IBAN] = account
 
 	output := make(chan primitives.Block)
 	node.Input <- NewRequest(account, blueprint, output)
@@ -72,9 +82,76 @@ func (l *Ledger) OpenAccount(node *Node, username string) (*Account, error) {
 		return nil, errors.New("Unable to forge block")
 	}
 
+	return account, nil
+}
+
+// OpenGenesisAccount creates an initial account that bypasses the system.
+// Creates an account with an initial amount with delegate status.
+// This method is meant to be called once to initialize the system.
+func (l *Ledger) OpenGenesisAccount(username string) (*Account, error) {
+	if _, exist := l.Users[username]; exist {
+		return nil, fmt.Errorf("Account for %v already exists", username)
+	}
+
+	key, err := primitives.NewKeyForICAP(rand.Reader)
+
+	if err != nil {
+		return nil, err
+	}
+
+	account := NewAccount(key)
+	amount := primitives.NewAmount(100000000)
+	open := primitives.NewOpenBlock(amount, account.IBAN)
+
+	if open == nil {
+		return nil, errors.New("Unable to create block")
+	}
+
 	username = strings.ToLower(username)
 	l.Users[username] = account.IBAN
 	l.Accounts[account.IBAN] = account
+
+	if err := open.Sign(account.Key.PrivateKey); err != nil {
+		return nil, err
+	}
+
+	// Self-sign the opening block for the genesis account.
+	if err := open.SignWitness(account.Key.PrivateKey); err != nil {
+		return nil, err
+	}
+
+	if err := l.AppendBlock(open, account.IBAN); err != nil {
+		return nil, err
+	}
+
+	prev := l.LatestBlock(account.IBAN)
+	hash, err := prev.Hash()
+
+	if err != nil {
+		return nil, err
+	}
+
+	delegate := primitives.NewDelegateBlock(prev.Balance(), true, hash)
+
+	if delegate == nil {
+		return nil, errors.New("Unable to create block")
+	}
+
+	if err := delegate.Sign(account.Key.PrivateKey); err != nil {
+		return nil, err
+	}
+
+	// Self-sign the opening block for the genesis account.
+	if err := delegate.SignWitness(account.Key.PrivateKey); err != nil {
+		return nil, err
+	}
+
+	if err := l.AppendBlock(delegate, account.IBAN); err != nil {
+		return nil, err
+	}
+
+	account.Delegate = true
+	// TODO: Create a ChangeBlock to vote for self.
 	return account, nil
 }
 
