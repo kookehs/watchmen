@@ -73,13 +73,10 @@ func (l *Ledger) OpenAccount(node *Node, username string) (*Account, error) {
 	l.Users[username] = account.IBAN
 	l.Accounts[account.IBAN] = account
 
-	output := make(chan primitives.Block)
-	node.Input <- NewRequest(account, blueprint, output)
-	block := <-output
-	close(output)
+	request := NewRequest(account, blueprint)
 
-	if block == nil {
-		return nil, errors.New("Unable to forge block")
+	if _, err := node.Process(request); err != nil {
+		return nil, err
 	}
 
 	return account, nil
@@ -151,7 +148,33 @@ func (l *Ledger) OpenGenesisAccount(username string) (*Account, error) {
 	}
 
 	account.Delegate = true
-	// TODO: Create a ChangeBlock to vote for self.
+	prev = l.LatestBlock(account.IBAN)
+	hash, err = prev.Hash()
+
+	if err != nil {
+		return nil, err
+	}
+
+	change := primitives.NewChangeBlock(prev.Balance(), []primitives.IBAN{account.IBAN}, hash)
+
+	if change == nil {
+		return nil, errors.New("Unable to create block")
+	}
+
+	if err := change.Sign(account.Key.PrivateKey); err != nil {
+		return nil, err
+	}
+
+	// Self-sign the opening block for the genesis account.
+	if err := change.SignWitness(account.Key.PrivateKey); err != nil {
+		return nil, err
+	}
+
+	if err := l.AppendBlock(change, account.IBAN); err != nil {
+		return nil, err
+	}
+
+	account.Delegates[account.IBAN] = true
 	return account, nil
 }
 

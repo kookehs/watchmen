@@ -54,7 +54,12 @@ func (a *Account) CreateChangeBlock(delegates []primitives.IBAN, prev primitives
 		return nil, err
 	}
 
+	if prev.Balance().Cmp(VotingFee) == -1 {
+		return nil, errors.New("Insufficient funds")
+	}
+
 	blueprint := &Blueprint{
+		Balance:   prev.Balance(),
 		Delegates: delegates,
 		Previous:  prev,
 		Type:      primitives.Change,
@@ -79,6 +84,7 @@ func (a *Account) CreateDelegateBlock(delegate bool, prev primitives.Block) (*Bl
 
 	// TODO: Allow a % share to supporters.
 	blueprint := &Blueprint{
+		Balance:  prev.Balance(),
 		Delegate: true,
 		Previous: prev,
 		Type:     primitives.Delegate,
@@ -90,8 +96,8 @@ func (a *Account) CreateDelegateBlock(delegate bool, prev primitives.Block) (*Bl
 // CreateOpenBlock creates a blueprint for an OpenBlock.
 func (a *Account) CreateOpenBlock(amt primitives.Amount) (*Blueprint, error) {
 	blueprint := &Blueprint{
-		Amount: amt,
-		Type:   primitives.Open,
+		Balance: amt,
+		Type:    primitives.Open,
 	}
 
 	return blueprint, nil
@@ -111,7 +117,8 @@ func (a *Account) CreateReceiveBlock(amt primitives.Amount, key *ecdsa.PublicKey
 	balance.Add(prev.Balance(), amt)
 
 	blueprint := &Blueprint{
-		Amount:   balance,
+		Amount:   amt,
+		Balance:  balance,
 		Previous: prev,
 		Source:   src,
 		Type:     primitives.Receive,
@@ -134,7 +141,8 @@ func (a *Account) CreateSendBlock(amt primitives.Amount, dst primitives.IBAN, pr
 	balance.Sub(prev.Balance(), amt)
 
 	blueprint := &Blueprint{
-		Amount:      balance,
+		Amount:      amt,
+		Balance:     balance,
 		Destination: dst,
 		Previous:    prev,
 		Type:        primitives.Send,

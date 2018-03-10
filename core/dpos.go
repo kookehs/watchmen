@@ -28,6 +28,7 @@ var (
 // Blueprint contains information used to create a block.
 type Blueprint struct {
 	Amount      primitives.Amount
+	Balance     primitives.Amount
 	Delegate    bool
 	Delegates   []primitives.IBAN
 	Destination primitives.IBAN
@@ -91,12 +92,15 @@ func CalculateWeights(ledger *Ledger) Delegates {
 	delegates := make(map[primitives.IBAN]*Delegate)
 	values := make(Delegates, 0)
 
+	// TODO: Figure out why delegates aren't updating.
 	for _, account := range ledger.Accounts {
-		log.Println(len(ledger.Accounts))
-		log.Println(account.IBAN.String())
-		log.Println(ledger.Blocks[account.IBAN])
-		log.Println(ledger.LatestBlock(account.IBAN))
-		weight := ledger.LatestBlock(account.IBAN).Balance()
+		prev := ledger.LatestBlock(account.IBAN)
+
+		if prev == nil {
+			continue
+		}
+
+		weight := prev.Balance()
 
 		for iban, _ := range account.Delegates {
 			if _, exist := delegates[iban]; !exist {
@@ -231,21 +235,18 @@ func (d *DPoS) ParseDelegates(account *Account, delegates []string, ledger *Ledg
 		return nil, err
 	}
 
-	output := make(chan primitives.Block)
-	node.Input <- NewRequest(account, blueprint, output)
-	block := <-output
-	close(output)
+	request := NewRequest(account, blueprint)
 
-	if block == nil {
-		return nil, errors.New("Unable to forge block")
+	if _, err := node.Process(request); err != nil {
+		return nil, err
 	}
 
 	return accounts, nil
 }
 
 // Update checks if a new round needs to be created and returns the current forger.
-func (d *DPoS) Update(ledger *Ledger) *Delegate {
-	if (len(d.Round.Forgers) == 0) || ((d.Round.Index % len(d.Round.Forgers)) == 0) {
+func (d *DPoS) Update(ledger *Ledger) (*Delegate, error) {
+	if (len(d.Round.Forgers) == 0) || ((d.Round.Index != 0) && ((d.Round.Index % len(d.Round.Forgers)) == 0)) {
 		d.Delegates = CalculateWeights(ledger)
 		d.Round = NewRound(d.Delegates)
 	}
@@ -275,13 +276,18 @@ func NewRound(delegates Delegates) *Round {
 
 // Forge will have the Delegate at Index create the next block.
 func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block, error) {
-	var block primitives.Block
+	var block, prev primitives.Block
+	var hash primitives.BlockHash
+	var err error
 
-	prev := blueprint.Previous
-	hash, err := prev.Hash()
+	if blueprint.Type != primitives.Open {
+		prev = blueprint.Previous
 
-	if err != nil {
-		return nil, err
+		hash, err = prev.Hash()
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	forger := r.Forgers[r.Index]
@@ -289,11 +295,11 @@ func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block,
 
 	switch blueprint.Type {
 	case primitives.Change:
-		block = primitives.NewChangeBlock(prev.Balance(), blueprint.Delegates, hash)
+		block = primitives.NewChangeBlock(blueprint.Balance, blueprint.Delegates, hash)
 	case primitives.Delegate:
-		block = primitives.NewDelegateBlock(prev.Balance(), blueprint.Delegate, hash)
+		block = primitives.NewDelegateBlock(blueprint.Balance, blueprint.Delegate, hash)
 	case primitives.Open:
-		block = primitives.NewOpenBlock(blueprint.Amount, account.IBAN)
+		block = primitives.NewOpenBlock(blueprint.Balance, account.IBAN)
 	case primitives.Receive:
 		srcHash, err := blueprint.Source.Hash()
 
@@ -301,9 +307,9 @@ func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block,
 			return nil, err
 		}
 
-		block = primitives.NewReceiveBlock(blueprint.Amount, hash, srcHash)
+		block = primitives.NewReceiveBlock(blueprint.Balance, hash, srcHash)
 	case primitives.Send:
-		block = primitives.NewSendBlock(blueprint.Amount, blueprint.Destination, hash)
+		block = primitives.NewSendBlock(blueprint.Balance, blueprint.Destination, hash)
 	default:
 		return nil, errors.New("Invalid block type")
 	}
@@ -320,7 +326,11 @@ func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block,
 }
 
 // Forger returns the current forger.
-func (r *Round) Forger() *Delegate {
+func (r *Round) Forger() (*Delegate, error) {
+	if (len(r.Forgers) == 0) || ((r.Index != 0) && ((r.Index % len(r.Forgers)) == 0)) {
+		return nil, errors.New("No current forger. Round has ended.")
+	}
+
 	forger := r.Forgers[r.Index]
-	return forger
+	return forger, nil
 }
