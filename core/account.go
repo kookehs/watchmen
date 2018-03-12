@@ -12,11 +12,12 @@ import (
 
 // Account contains address as well as the key that generated it.
 type Account struct {
-	BBAN      primitives.BBAN          `json:"bban"`
-	Delegate  bool                     `json:"delegate"`
-	Delegates map[primitives.IBAN]bool `json:"delegates"`
-	IBAN      primitives.IBAN          `json:"iban"`
-	Key       *primitives.Key          `json:"key"`
+	BBAN      primitives.BBAN `json:"bban"`
+	Delegate  bool            `json:"delegate"`
+	Delegates map[IBAN]bool   `json:"delegates"`
+	IBAN      primitives.IBAN `json:"iban"`
+	Key       *primitives.Key `json:"key"`
+	Share     float64         `json:"share"`
 }
 
 // NewAccount creates and initializes an account with the given key.
@@ -27,9 +28,10 @@ func NewAccount(key *primitives.Key) *Account {
 	return &Account{
 		BBAN:      bban,
 		Delegate:  false,
-		Delegates: make(map[primitives.IBAN]bool),
+		Delegates: make(map[IBAN]bool),
 		IBAN:      iban,
 		Key:       key,
+		Share:     0,
 	}
 }
 
@@ -54,7 +56,10 @@ func (a *Account) CreateChangeBlock(delegates []primitives.IBAN, prev primitives
 		return nil, err
 	}
 
-	if prev.Balance().Cmp(VotingFee) == -1 {
+	cost := primitives.NewAmount(0)
+	cost.Add(TransactionFee, VotingFee)
+
+	if prev.Balance().Cmp(cost) == -1 {
 		return nil, errors.New("Insufficient funds")
 	}
 
@@ -69,12 +74,19 @@ func (a *Account) CreateChangeBlock(delegates []primitives.IBAN, prev primitives
 }
 
 // CreateDelegateBlock creates a blueprint for a DelegateBlock with the given arguments.
-func (a *Account) CreateDelegateBlock(delegate bool, prev primitives.Block) (*Blueprint, error) {
+func (a *Account) CreateDelegateBlock(prev primitives.Block, share float64) (*Blueprint, error) {
 	if err := VerifyBlock(prev, &a.Key.PrivateKey.PublicKey); err != nil {
 		return nil, err
 	}
 
-	if prev.Balance().Cmp(DelegateFee) == -1 {
+	if (share < 0) || (share > 100) {
+		return nil, errors.New("Invalid share value")
+	}
+
+	cost := primitives.NewAmount(0)
+	cost.Add(TransactionFee, DelegateFee)
+
+	if prev.Balance().Cmp(cost) == -1 {
 		return nil, errors.New("Insufficient funds")
 	}
 
@@ -82,11 +94,10 @@ func (a *Account) CreateDelegateBlock(delegate bool, prev primitives.Block) (*Bl
 		return nil, errors.New("Account is already a delegate")
 	}
 
-	// TODO: Allow a % share to supporters.
 	blueprint := &Blueprint{
 		Balance:  prev.Balance(),
-		Delegate: true,
 		Previous: prev,
+		Share:    share,
 		Type:     primitives.Delegate,
 	}
 
@@ -133,7 +144,10 @@ func (a *Account) CreateSendBlock(amt primitives.Amount, dst primitives.IBAN, pr
 		return nil, err
 	}
 
-	if prev.Balance().Cmp(amt) == -1 {
+	cost := primitives.NewAmount(0)
+	cost.Add(TransactionFee, amt)
+
+	if prev.Balance().Cmp(cost) == -1 {
 		return nil, errors.New("Insufficient funds")
 	}
 

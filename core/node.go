@@ -69,25 +69,23 @@ func (n *Node) Process(request *Request) (primitives.Block, error) {
 		return nil, err
 	}
 
+	reward := primitives.NewAmount(0)
+	reward.Copy(ForgeReward)
+
 	switch blueprint.Type {
 	case primitives.Change:
-		// Transfer of voting fee
-		if err := n.Transfer(VotingFee, forger.Account, account); err != nil {
-			log.Println(err)
-		}
+		reward.Add(reward, VotingFee)
+		reward.Add(reward, TransactionFee)
 	case primitives.Delegate:
-		// Transfer of delegate fee
-		if err := n.Transfer(DelegateFee, forger.Account, account); err != nil {
-			log.Println(err)
-			break
-		}
-
 		account.Delegate = true
+		account.Share = blueprint.Share
 		n.DPoS.Delegates = append(n.DPoS.Delegates, NewDelegate(account))
+		reward.Add(reward, DelegateFee)
+		reward.Add(reward, TransactionFee)
 	case primitives.Open:
 	case primitives.Receive:
 	case primitives.Send:
-		destination := n.Ledger.Accounts[blueprint.Destination]
+		destination := n.Ledger.Accounts[blueprint.Destination.String()]
 		prev := n.Ledger.LatestBlock(destination.IBAN)
 		blueprint, err := destination.CreateReceiveBlock(blueprint.Amount, &account.Key.PrivateKey.PublicKey, prev, block)
 
@@ -100,12 +98,40 @@ func (n *Node) Process(request *Request) (primitives.Block, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		reward.Add(reward, TransactionFee)
 	default:
 		log.Println("Invalid block type")
 	}
 
-	// TODO: Payout fees + reward
+	n.Payout(forger.Account, reward)
 	return block, nil
+}
+
+// Payout distributes the block reward to stakeholders evenly according to share.
+func (n *Node) Payout(forger *Account, reward primitives.Amount) {
+	stakeholders := n.Ledger.Stakeholders(forger.IBAN)
+
+	// Calculate the amount shared.
+	share := primitives.NewAmount(forger.Share)
+	share.Quo(share, primitives.NewAmount(100))
+	share.Mul(reward, share)
+
+	// Calculate the amount to be kept by forger.
+	keep := primitives.NewAmount(0)
+	keep.Sub(reward, share)
+
+	// Calculate the split.
+	ways := primitives.NewAmount(float64(len(stakeholders)))
+	reward.Quo(reward, ways)
+
+	for _, stakeholder := range stakeholders {
+		if err := n.Transfer(reward, stakeholder, forger); err != nil {
+			log.Println(err)
+		}
+	}
+
+	// TODO: Send forger their split.
 }
 
 // Transfer moves funds from one Account to another.

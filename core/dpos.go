@@ -29,12 +29,12 @@ var (
 type Blueprint struct {
 	Amount      primitives.Amount
 	Balance     primitives.Amount
-	Delegate    bool
 	Delegates   []primitives.IBAN
 	Destination primitives.IBAN
-	Type        primitives.BlockType
 	Previous    primitives.Block
+	Share       float64
 	Source      primitives.Block
+	Type        primitives.BlockType
 }
 
 // Delegate contains an Account and their total weight.
@@ -89,10 +89,9 @@ func NewDPoS() *DPoS {
 // The final weight is the sum of the amounts each supporter holds.
 func CalculateWeights(ledger *Ledger) Delegates {
 	// Map for quick look up. Slice for sorting.
-	delegates := make(map[primitives.IBAN]*Delegate)
+	delegates := make(map[IBAN]*Delegate)
 	values := make(Delegates, 0)
 
-	// TODO: Figure out why delegates aren't updating.
 	for _, account := range ledger.Accounts {
 		prev := ledger.LatestBlock(account.IBAN)
 
@@ -167,8 +166,8 @@ func (d *DPoS) Elect(account *Account, delegates []string, ledger *Ledger, node 
 func ParseDelegateString(delegate string, ledger *Ledger) (byte, *Account) {
 	symbol := byte(delegate[0])
 	username := strings.ToLower(delegate[1:])
-	user := ledger.Users[username]
-	account := ledger.Accounts[user]
+	iban := ledger.Users[username]
+	account := ledger.Accounts[iban.String()]
 	return symbol, account
 }
 
@@ -205,18 +204,18 @@ func (d *DPoS) ParseDelegates(account *Account, delegates []string, ledger *Ledg
 
 		symbol, delegate := ParseDelegateString(change, ledger)
 		iban := delegate.IBAN
-		_, exist := account.Delegates[iban]
+		_, exist := account.Delegates[iban.String()]
 
 		switch symbol {
 		case '+':
 			if !exist && delegate.Delegate {
-				account.Delegates[iban] = true
+				account.Delegates[iban.String()] = true
 				accounts = append(accounts, delegate)
 				ibans = append(ibans, iban)
 			}
 		case '-':
 			if exist {
-				delete(account.Delegates, iban)
+				delete(account.Delegates, iban.String())
 				ibans = append(ibans, iban)
 			}
 		default:
@@ -297,7 +296,7 @@ func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block,
 	case primitives.Change:
 		block = primitives.NewChangeBlock(blueprint.Balance, blueprint.Delegates, hash)
 	case primitives.Delegate:
-		block = primitives.NewDelegateBlock(blueprint.Balance, blueprint.Delegate, hash)
+		block = primitives.NewDelegateBlock(blueprint.Balance, hash, blueprint.Share)
 	case primitives.Open:
 		block = primitives.NewOpenBlock(blueprint.Balance, account.IBAN)
 	case primitives.Receive:

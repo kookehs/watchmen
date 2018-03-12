@@ -24,6 +24,7 @@ type ChangeHashables struct {
 	Delegates []IBAN    `json:"delegates"`
 	Previous  BlockHash `json:"previous"`
 	Timestamp int64     `json:"timestamp"`
+	Type      BlockType `json:"type"`
 }
 
 // MakeChangeHashables creates and initializes a ChangeHashables from the given arguments.
@@ -33,6 +34,7 @@ func MakeChangeHashables(amt Amount, delegates []IBAN, prev BlockHash) ChangeHas
 		Delegates: delegates,
 		Previous:  prev,
 		Timestamp: time.Now().UnixNano(),
+		Type:      Change,
 	}
 }
 
@@ -63,18 +65,20 @@ func (ch *ChangeHashables) SerializeJSON(w io.Writer) error {
 // DelegateHashables contains elements of a DelegateBlock that can be hashed.
 type DelegateHashables struct {
 	Balance   Amount    `json:"balance"`
-	Delegate  bool      `json:"delegate"`
 	Previous  BlockHash `json:"previous"`
+	Share     float64   `json:"share"`
 	Timestamp int64     `json:"timestamp"`
+	Type      BlockType `json:"type"`
 }
 
 // MakeDelegateHashables creates and initializes a DelegateHashables from the given arguments.
-func MakeDelegateHashables(amt Amount, delegate bool, prev BlockHash) DelegateHashables {
+func MakeDelegateHashables(amt Amount, prev BlockHash, share float64) DelegateHashables {
 	return DelegateHashables{
 		Balance:   amt,
-		Delegate:  delegate,
 		Previous:  prev,
+		Share:     share,
 		Timestamp: time.Now().UnixNano(),
+		Type:      Delegate,
 	}
 }
 
@@ -104,9 +108,10 @@ func (dh *DelegateHashables) SerializeJSON(w io.Writer) error {
 
 // OpenHashables contains elements of a OpenBlock that can be hashed.
 type OpenHashables struct {
-	Account   IBAN   `json:"account"`
-	Balance   Amount `json:"balance"`
-	Timestamp int64  `json:"timestamp"`
+	Account   IBAN      `json:"account"`
+	Balance   Amount    `json:"balance"`
+	Timestamp int64     `json:"timestamp"`
+	Type      BlockType `json:"type"`
 }
 
 // MakeOpenHashables creates and initializes a OpenHashables from the given arguments.
@@ -115,6 +120,7 @@ func MakeOpenHashables(amt Amount, iban IBAN) OpenHashables {
 		Account:   iban,
 		Balance:   amt,
 		Timestamp: time.Now().UnixNano(),
+		Type:      Open,
 	}
 }
 
@@ -148,6 +154,7 @@ type ReceiveHashables struct {
 	Previous  BlockHash `json:"previous"`
 	Source    BlockHash `json:"source"`
 	Timestamp int64     `json:"timestamp"`
+	Type      BlockType `json:"type"`
 }
 
 // MakeReceiveHashables creates and initializes a ReceiveHashables from the given arguments.
@@ -157,6 +164,7 @@ func MakeReceiveHashables(amt Amount, prev, src BlockHash) ReceiveHashables {
 		Previous:  prev,
 		Source:    src,
 		Timestamp: time.Now().UnixNano(),
+		Type:      Receive,
 	}
 }
 
@@ -190,6 +198,7 @@ type SendHashables struct {
 	Destination IBAN      `json:"destination"`
 	Previous    BlockHash `json:"previous"`
 	Timestamp   int64     `json:"timestamp"`
+	Type        BlockType `json:"type"`
 }
 
 // MakeSendHashables creates and initializes a SendHashables from the given arguments.
@@ -199,6 +208,7 @@ func MakeSendHashables(amt Amount, dst IBAN, prev BlockHash) SendHashables {
 		Destination: dst,
 		Previous:    prev,
 		Timestamp:   time.Now().UnixNano(),
+		Type:        Send,
 	}
 }
 

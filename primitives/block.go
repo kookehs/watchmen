@@ -19,6 +19,7 @@ type Block interface {
 	Hash() (BlockHash, error)
 	Previous() BlockHash
 	Root() BlockHash
+	Share() float64
 	Sign(*ecdsa.PrivateKey) error
 	SignWitness(*ecdsa.PrivateKey) error
 	Source() BlockHash
@@ -42,9 +43,9 @@ type Block interface {
 
 // ChangeBlock represents a change in delegates.
 type ChangeBlock struct {
-	Delegate  Signature       `json:"delegate"`
 	Hashables ChangeHashables `json:"hashables"`
 	Signature Signature       `json:"signature"`
+	Witness   Signature       `json:"witness"`
 }
 
 // NewChangeBlock creates and initializes a ChangeBlock from the given arguments.
@@ -85,6 +86,11 @@ func (cb *ChangeBlock) Root() BlockHash {
 	return cb.Hashables.Previous
 }
 
+// Share returns the percentage of rewards delegates share.
+func (cb *ChangeBlock) Share() float64 {
+	return -1
+}
+
 // Sign signs the block with the given private key.
 func (cb *ChangeBlock) Sign(priv *ecdsa.PrivateKey) error {
 	hash, err := cb.Hash()
@@ -117,7 +123,7 @@ func (cb *ChangeBlock) SignWitness(priv *ecdsa.PrivateKey) error {
 		return err
 	}
 
-	cb.Delegate = MakeSignature(r, s)
+	cb.Witness = MakeSignature(r, s)
 	return nil
 }
 
@@ -155,7 +161,7 @@ func (cb *ChangeBlock) VerifyWitness(pub *ecdsa.PublicKey) (bool, error) {
 		return false, err
 	}
 
-	return crypto.Verify(hash[:], pub, cb.Delegate.R, cb.Delegate.S), nil
+	return crypto.Verify(hash[:], pub, cb.Witness.R, cb.Witness.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.
@@ -200,15 +206,15 @@ func (cb *ChangeBlock) ToJSON() (string, error) {
 
 // DelegateBlock represents a change in delegates.
 type DelegateBlock struct {
-	Delegate  Signature         `json:"delegate"`
 	Hashables DelegateHashables `json:"hashables"`
 	Signature Signature         `json:"signature"`
+	Witness   Signature         `json:"witness"`
 }
 
 // NewDelegateBlock creates and initializes a DelegateBlock from the given arguments.
-func NewDelegateBlock(amt Amount, delegate bool, prev BlockHash) *DelegateBlock {
+func NewDelegateBlock(amt Amount, prev BlockHash, share float64) *DelegateBlock {
 	return &DelegateBlock{
-		Hashables: MakeDelegateHashables(amt, delegate, prev),
+		Hashables: MakeDelegateHashables(amt, prev, share),
 	}
 }
 
@@ -243,6 +249,11 @@ func (db *DelegateBlock) Root() BlockHash {
 	return db.Hashables.Previous
 }
 
+// Share returns the percentage of rewards delegates share.
+func (db *DelegateBlock) Share() float64 {
+	return db.Hashables.Share
+}
+
 // Sign signs the block with the given private key.
 func (db *DelegateBlock) Sign(priv *ecdsa.PrivateKey) error {
 	hash, err := db.Hash()
@@ -275,7 +286,7 @@ func (db *DelegateBlock) SignWitness(priv *ecdsa.PrivateKey) error {
 		return err
 	}
 
-	db.Delegate = MakeSignature(r, s)
+	db.Witness = MakeSignature(r, s)
 	return nil
 }
 
@@ -313,7 +324,7 @@ func (db *DelegateBlock) VerifyWitness(pub *ecdsa.PublicKey) (bool, error) {
 		return false, err
 	}
 
-	return crypto.Verify(hash[:], pub, db.Delegate.R, db.Delegate.S), nil
+	return crypto.Verify(hash[:], pub, db.Witness.R, db.Witness.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.
@@ -358,9 +369,9 @@ func (db *DelegateBlock) ToJSON() (string, error) {
 
 // OpenBlock represents a openining of an account.
 type OpenBlock struct {
-	Delegate  Signature     `json:"delegate"`
 	Hashables OpenHashables `json:"hashables"`
 	Signature Signature     `json:"signature"`
+	Witness   Signature     `json:"witness"`
 }
 
 // NewOpenBlock creates and initializes an OpenBlock from the given arguments.
@@ -402,6 +413,11 @@ func (ob *OpenBlock) Root() BlockHash {
 	return BlockHashZero
 }
 
+// Share returns the percentage of rewards delegates share.
+func (ob *OpenBlock) Share() float64 {
+	return -1
+}
+
 // Sign signs the block with the given private key.
 func (ob *OpenBlock) Sign(priv *ecdsa.PrivateKey) error {
 	hash, err := ob.Hash()
@@ -434,7 +450,7 @@ func (ob *OpenBlock) SignWitness(priv *ecdsa.PrivateKey) error {
 		return err
 	}
 
-	ob.Delegate = MakeSignature(r, s)
+	ob.Witness = MakeSignature(r, s)
 	return nil
 }
 
@@ -472,7 +488,7 @@ func (ob *OpenBlock) VerifyWitness(pub *ecdsa.PublicKey) (bool, error) {
 		return false, err
 	}
 
-	return crypto.Verify(hash[:], pub, ob.Delegate.R, ob.Delegate.S), nil
+	return crypto.Verify(hash[:], pub, ob.Witness.R, ob.Witness.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.
@@ -517,9 +533,9 @@ func (ob *OpenBlock) ToJSON() (string, error) {
 
 // ReceiveBlock represents the receiving end of a send transaction.
 type ReceiveBlock struct {
-	Delegate  Signature        `json:"delegate"`
 	Hashables ReceiveHashables `json:"hashables"`
 	Signature Signature        `json:"signature"`
+	Witness   Signature        `json:"witness"`
 }
 
 // NewReceiveBlock creates and initializes a ReceiveBlock from the given arguments.
@@ -560,6 +576,11 @@ func (rb *ReceiveBlock) Root() BlockHash {
 	return rb.Hashables.Previous
 }
 
+// Share returns the percentage of rewards delegates share.
+func (rb *ReceiveBlock) Share() float64 {
+	return -1
+}
+
 // Sign signs the block with the given private key.
 func (rb *ReceiveBlock) Sign(priv *ecdsa.PrivateKey) error {
 	hash, err := rb.Hash()
@@ -592,7 +613,7 @@ func (rb *ReceiveBlock) SignWitness(priv *ecdsa.PrivateKey) error {
 		return err
 	}
 
-	rb.Delegate = MakeSignature(r, s)
+	rb.Witness = MakeSignature(r, s)
 	return nil
 }
 
@@ -630,7 +651,7 @@ func (rb *ReceiveBlock) VerifyWitness(pub *ecdsa.PublicKey) (bool, error) {
 		return false, err
 	}
 
-	return crypto.Verify(hash[:], pub, rb.Delegate.R, rb.Delegate.S), nil
+	return crypto.Verify(hash[:], pub, rb.Witness.R, rb.Witness.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.
@@ -675,9 +696,9 @@ func (rb *ReceiveBlock) ToJSON() (string, error) {
 
 // SendBlock represents the sending of a transaction.
 type SendBlock struct {
-	Delegate  Signature     `json:"delegate"`
 	Hashables SendHashables `json:"hashables"`
 	Signature Signature     `json:"signature"`
+	Witness   Signature     `json:"witness"`
 }
 
 // NewSendBlock creates and initializes a SendBlock from the given arguments.
@@ -718,6 +739,11 @@ func (sb *SendBlock) Root() BlockHash {
 	return sb.Hashables.Previous
 }
 
+// Share returns the percentage of rewards delegates share.
+func (sb *SendBlock) Share() float64 {
+	return -1
+}
+
 // Sign signs the block with the given private key.
 func (sb *SendBlock) Sign(priv *ecdsa.PrivateKey) error {
 	hash, err := sb.Hash()
@@ -750,7 +776,7 @@ func (sb *SendBlock) SignWitness(priv *ecdsa.PrivateKey) error {
 		return err
 	}
 
-	sb.Delegate = MakeSignature(r, s)
+	sb.Witness = MakeSignature(r, s)
 	return nil
 }
 
@@ -788,7 +814,7 @@ func (sb *SendBlock) VerifyWitness(pub *ecdsa.PublicKey) (bool, error) {
 		return false, err
 	}
 
-	return crypto.Verify(hash[:], pub, sb.Delegate.R, sb.Delegate.S), nil
+	return crypto.Verify(hash[:], pub, sb.Witness.R, sb.Witness.S), nil
 }
 
 // Deserialize decodes byte data encoded by gob.
