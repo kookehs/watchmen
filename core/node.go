@@ -70,20 +70,24 @@ func (n *Node) Process(request *Request) (primitives.Block, error) {
 	}
 
 	reward := primitives.NewAmount(0)
-	reward.Copy(ForgeReward)
 
 	switch blueprint.Type {
 	case primitives.Change:
+		reward.Copy(ForgeReward)
 		reward.Add(reward, VotingFee)
 		reward.Add(reward, TransactionFee)
 	case primitives.Delegate:
 		account.Delegate = true
 		account.Share = blueprint.Share
 		n.DPoS.Delegates = append(n.DPoS.Delegates, NewDelegate(account))
+		reward.Copy(ForgeReward)
 		reward.Add(reward, DelegateFee)
 		reward.Add(reward, TransactionFee)
 	case primitives.Open:
+		reward.Copy(ForgeReward)
 	case primitives.Receive:
+		// TODO: Look into alternative reward system.
+		// No reward for forging a ReceiveBlock.
 	case primitives.Send:
 		destination := n.Ledger.Accounts[blueprint.Destination.String()]
 		prev := n.Ledger.LatestBlock(destination.IBAN)
@@ -99,12 +103,16 @@ func (n *Node) Process(request *Request) (primitives.Block, error) {
 			return nil, err
 		}
 
+		reward.Copy(ForgeReward)
 		reward.Add(reward, TransactionFee)
 	default:
 		log.Println("Invalid block type")
 	}
 
-	n.Payout(forger.Account, reward)
+	if reward.Cmp(primitives.NewAmount(0)) == 1 {
+		n.Payout(forger.Account, reward)
+	}
+
 	return block, nil
 }
 
@@ -121,31 +129,43 @@ func (n *Node) Payout(forger *Account, reward primitives.Amount) {
 	keep := primitives.NewAmount(0)
 	keep.Sub(reward, share)
 
-	// Calculate the split.
-	ways := primitives.NewAmount(float64(len(stakeholders)))
-	reward.Quo(reward, ways)
+	if share.Cmp(primitives.NewAmount(0)) == 1 {
+		// Calculate the split.
+		ways := primitives.NewAmount(float64(len(stakeholders)))
+		share.Quo(share, ways)
 
-	for _, stakeholder := range stakeholders {
-		if err := n.Transfer(reward, stakeholder, forger); err != nil {
-			log.Println(err)
+		for _, stakeholder := range stakeholders {
+			prev := n.Ledger.LatestBlock(stakeholder.IBAN)
+			blueprint, err := stakeholder.CreateReceiveBlock(share, nil, prev, nil)
+
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			_, err = n.Process(NewRequest(stakeholder, blueprint))
+
+			if err != nil {
+				log.Println(err)
+				continue
+			}
 		}
 	}
 
-	// TODO: Send forger their split.
-}
+	if keep.Cmp(primitives.NewAmount(0)) == 1 {
+		prev := n.Ledger.LatestBlock(forger.IBAN)
+		blueprint, err := forger.CreateReceiveBlock(keep, nil, prev, nil)
 
-// Transfer moves funds from one Account to another.
-func (n *Node) Transfer(amt primitives.Amount, dst, src *Account) error {
-	prev := n.Ledger.LatestBlock(src.IBAN)
-	blueprint, err := src.CreateSendBlock(amt, dst.IBAN, prev)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 
-	if err != nil {
-		return err
+		_, err = n.Process(NewRequest(forger, blueprint))
+
+		if err != nil {
+			log.Println(err)
+			return
+		}
 	}
-
-	if _, err := n.Process(NewRequest(src, blueprint)); err != nil {
-		return err
-	}
-
-	return nil
 }

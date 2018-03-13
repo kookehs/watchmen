@@ -17,12 +17,12 @@ var (
 	VotingFee   primitives.Amount = primitives.NewAmount(1)
 
 	// Limits
-	MaxDelegatesPerAccount int = 101
+	MaxDelegatesPerAccount int = 1
 	MaxDelegatesPerBlock   int = 33
 	MaxForgers             int = 101
 
 	// Rewards
-	ForgeReward primitives.Amount = primitives.NewAmount(1)
+	ForgeReward primitives.Amount = primitives.NewAmount(4)
 )
 
 // Blueprint contains information used to create a block.
@@ -300,10 +300,12 @@ func (r *Round) Forge(account *Account, blueprint *Blueprint) (primitives.Block,
 	case primitives.Open:
 		block = primitives.NewOpenBlock(blueprint.Balance, account.IBAN)
 	case primitives.Receive:
-		srcHash, err := blueprint.Source.Hash()
+		srcHash := primitives.BlockHashZero
 
-		if err != nil {
-			return nil, err
+		if blueprint.Source != nil {
+			if srcHash, err = blueprint.Source.Hash(); err != nil {
+				return nil, err
+			}
 		}
 
 		block = primitives.NewReceiveBlock(blueprint.Balance, hash, srcHash)

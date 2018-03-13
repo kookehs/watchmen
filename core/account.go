@@ -120,8 +120,10 @@ func (a *Account) CreateReceiveBlock(amt primitives.Amount, key *ecdsa.PublicKey
 		return nil, err
 	}
 
-	if err := VerifyBlock(src, key); err != nil {
-		return nil, err
+	if key != nil {
+		if err := VerifyBlock(src, key); err != nil {
+			return nil, err
+		}
 	}
 
 	balance := primitives.NewAmount(0)
