@@ -11,6 +11,18 @@ import (
 	"github.com/kookehs/watchmen/crypto"
 )
 
+// Register various types to allow encoding.
+func init() {
+	amount := NewAmount(0)
+	hash := BlockHashZero
+	iban := IBAN{}
+	gob.Register(NewChangeBlock(amount, []IBAN{}, hash))
+	gob.Register(NewDelegateBlock(amount, hash, 0))
+	gob.Register(NewOpenBlock(amount, iban))
+	gob.Register(NewReceiveBlock(amount, hash, hash))
+	gob.Register(NewSendBlock(amount, iban, hash))
+}
+
 // Block represents the common elements shared between various types.
 type Block interface {
 	// Block

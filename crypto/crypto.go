@@ -5,8 +5,14 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/gob"
 	"math/big"
 )
+
+// Register various types to allow encoding.
+func init() {
+	gob.Register(elliptic.P256())
+}
 
 // ECDSAPublicKeyToOctet returns the byte of a point in octect representation.
 func ECDSAPublicKeyToOctet(pub *ecdsa.PublicKey) []byte {

@@ -17,7 +17,7 @@ var (
 	VotingFee   primitives.Amount = primitives.NewAmount(1)
 
 	// Limits
-	MaxDelegatesPerAccount int = 1
+	MaxDelegatesPerAccount int = 101
 	MaxDelegatesPerBlock   int = 33
 	MaxForgers             int = 101
 

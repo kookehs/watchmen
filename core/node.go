@@ -20,15 +20,12 @@ func NewRequest(account *Account, blueprint *Blueprint) *Request {
 	}
 }
 
-// TODO: Create an unlimited buffered channel or load balance.
+// TODO: Implement network.
 
-// Defines limits and fees for the system
+// Defines fees for the system
 var (
 	// Fees
 	TransactionFee primitives.Amount = primitives.NewAmount(0.1)
-
-	// Limits
-	InputBufferSize int = 100
 )
 
 // Node is the structure responsible for carrying out actions on the network.
@@ -86,7 +83,6 @@ func (n *Node) Process(request *Request) (primitives.Block, error) {
 	case primitives.Open:
 		reward.Copy(ForgeReward)
 	case primitives.Receive:
-		// TODO: Look into alternative reward system.
 		// No reward for forging a ReceiveBlock.
 	case primitives.Send:
 		destination := n.Ledger.Accounts[blueprint.Destination.String()]
