@@ -196,9 +196,11 @@ func (l *Ledger) OpenGenesisDelegates(dpos *DPoS, genesis *Account, node *Node) 
 	split := primitives.NewAmount(0)
 	balance := l.LatestBlock(genesis.IBAN).Balance()
 	split.Copy(balance)
+
 	fee := primitives.NewAmount(0)
 	ways := primitives.NewAmount(float64(MaxDelegatesPerAccount))
 	fee.Mul(ways, TransactionFee)
+
 	split.Sub(split, fee)
 	split.Quo(split, ways)
 
@@ -211,22 +213,16 @@ func (l *Ledger) OpenGenesisDelegates(dpos *DPoS, genesis *Account, node *Node) 
 			continue
 		}
 
-		prev := l.LatestBlock(genesis.IBAN)
-		blueprint, err := genesis.CreateSendBlock(split, delegate.IBAN, prev)
+		_, err = l.Transfer(split, delegate.IBAN, genesis.IBAN, node)
 
 		if err != nil {
 			log.Println(err)
 			continue
 		}
 
-		if _, err := node.Process(NewRequest(genesis, blueprint)); err != nil {
-			log.Println(err)
-			continue
-		}
-
-		prev = l.LatestBlock(delegate.IBAN)
+		prev := l.LatestBlock(delegate.IBAN)
 		share := 100.0
-		blueprint, err = delegate.CreateDelegateBlock(prev, share)
+		blueprint, err := delegate.CreateDelegateBlock(prev, share)
 
 		if err != nil {
 			log.Println(err)
@@ -260,6 +256,24 @@ func (l *Ledger) Stakeholders(delegate primitives.IBAN) []*Account {
 	}
 
 	return stakeholders
+}
+
+func (l *Ledger) Transfer(amt primitives.Amount, dst, src primitives.IBAN, node *Node) (primitives.Block, error) {
+	prev := l.LatestBlock(src)
+	account := l.Accounts[src.String()]
+	blueprint, err := account.CreateSendBlock(amt, dst, prev)
+
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := node.Process(NewRequest(account, blueprint))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return block, nil
 }
 
 // Username returns the username associated with the given IBAN.

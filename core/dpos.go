@@ -22,6 +22,7 @@ var (
 	MaxForgers             int = 101
 
 	// Rewards
+	// TODO: Consider decreasing reward amount.
 	ForgeReward primitives.Amount = primitives.NewAmount(4)
 )
 
