@@ -44,7 +44,8 @@ func NewNode(dpos *DPoS, ledger *Ledger) *Node {
 
 // Process processes the given request taking necessary actions.
 func (n *Node) Process(request *Request) (primitives.Block, error) {
-	forger, err := n.DPoS.Update(n.Ledger)
+	n.DPoS.Update(n.Ledger)
+	forger, err := n.DPoS.Round.Forger()
 
 	if err != nil {
 		return nil, err

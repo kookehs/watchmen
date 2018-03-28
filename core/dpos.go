@@ -245,13 +245,13 @@ func (d *DPoS) ParseDelegates(account *Account, delegates []string, ledger *Ledg
 }
 
 // Update checks if a new round needs to be created and returns the current forger.
-func (d *DPoS) Update(ledger *Ledger) (*Delegate, error) {
+func (d *DPoS) Update(ledger *Ledger) Delegates {
 	if (len(d.Round.Forgers) == 0) || ((d.Round.Index != 0) && ((d.Round.Index % len(d.Round.Forgers)) == 0)) {
 		d.Delegates = CalculateWeights(ledger)
 		d.Round = NewRound(d.Delegates)
 	}
 
-	return d.Round.Forger()
+	return d.Round.Forgers
 }
 
 // Round is the system in which each Delegate will forge a single block.
