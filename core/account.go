@@ -15,8 +15,10 @@ type Account struct {
 	BBAN      primitives.BBAN `json:"bban"`
 	Delegate  bool            `json:"delegate"`
 	Delegates map[IBAN]bool   `json:"delegates"`
+	Forged    uint64          `json:"forged"`
 	IBAN      primitives.IBAN `json:"iban"`
 	Key       *primitives.Key `json:"key"`
+	Missed    uint64          `json:"missed"`
 	Share     float64         `json:"share"`
 }
 
@@ -29,8 +31,10 @@ func NewAccount(key *primitives.Key) *Account {
 		BBAN:      bban,
 		Delegate:  false,
 		Delegates: make(map[IBAN]bool),
+		Forged:    0,
 		IBAN:      iban,
 		Key:       key,
+		Missed:    0,
 		Share:     0,
 	}
 }

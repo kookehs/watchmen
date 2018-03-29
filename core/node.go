@@ -6,20 +6,6 @@ import (
 	"github.com/kookehs/watchmen/primitives"
 )
 
-// Request is an instruction for a Node.
-type Request struct {
-	Account   *Account
-	Blueprint *Blueprint
-}
-
-// NewRequest returns a pointer to an initialized Request.
-func NewRequest(account *Account, blueprint *Blueprint) *Request {
-	return &Request{
-		Account:   account,
-		Blueprint: blueprint,
-	}
-}
-
 // TODO: Implement network.
 
 // Defines fees for the system
@@ -28,27 +14,45 @@ var (
 	TransactionFee primitives.Amount = primitives.NewAmount(0.1)
 )
 
+// Status interface contains functions related to the statuses of a delegate.
+type Status interface {
+	Available(string) bool
+}
+
 // Node is the structure responsible for carrying out actions on the network.
 type Node struct {
 	DPoS   *DPoS
 	Ledger *Ledger
+	Status Status
 }
 
 // NewNode returns a pointer to an initialized Node.
-func NewNode(dpos *DPoS, ledger *Ledger) *Node {
+func NewNode(dpos *DPoS, ledger *Ledger, status Status) *Node {
 	return &Node{
 		DPoS:   dpos,
 		Ledger: ledger,
+		Status: status,
 	}
 }
 
 // Process processes the given request taking necessary actions.
 func (n *Node) Process(request *Request) (primitives.Block, error) {
-	n.DPoS.Update(n.Ledger)
-	forger, err := n.DPoS.Round.Forger()
+	var forger *Delegate
 
-	if err != nil {
-		return nil, err
+	for {
+		n.DPoS.Update(n.Ledger)
+		forger, err := n.DPoS.Round.Forger()
+
+		if err != nil {
+			return nil, err
+		}
+
+		if n.Status.Available(n.Ledger.Username(forger.Account.IBAN)) {
+			break
+		}
+
+		forger.Account.Missed++
+		n.DPoS.Round.Index++
 	}
 
 	account := request.Account
@@ -58,6 +62,8 @@ func (n *Node) Process(request *Request) (primitives.Block, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	forger.Account.Forged++
 
 	if err := block.Sign(account.Key.PrivateKey); err != nil {
 		return nil, err
@@ -164,5 +170,19 @@ func (n *Node) Payout(forger *Account, reward primitives.Amount) {
 			log.Println(err)
 			return
 		}
+	}
+}
+
+// Request is an instruction for a Node.
+type Request struct {
+	Account   *Account
+	Blueprint *Blueprint
+}
+
+// NewRequest returns a pointer to an initialized Request.
+func NewRequest(account *Account, blueprint *Blueprint) *Request {
+	return &Request{
+		Account:   account,
+		Blueprint: blueprint,
 	}
 }
