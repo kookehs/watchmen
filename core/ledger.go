@@ -296,7 +296,7 @@ func (l *Ledger) Deserialize(r io.Reader) error {
 	return decoder.Decode(l)
 }
 
-// Deserialize decodes JSON data.
+// DeserializeJSON decodes JSON data.
 func (l *Ledger) DeserializeJSON(r io.Reader) error {
 	decoder := json.NewDecoder(r)
 	return decoder.Decode(l)
@@ -308,7 +308,7 @@ func (l *Ledger) Serialize(w io.Writer) error {
 	return encoder.Encode(l)
 }
 
-// Serialize encodes to JSON data.
+// SerializeJSON encodes to JSON data.
 func (l *Ledger) SerializeJSON(w io.Writer) error {
 	encoder := json.NewEncoder(w)
 	return encoder.Encode(l)
